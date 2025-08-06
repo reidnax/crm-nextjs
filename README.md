@@ -1,36 +1,181 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CRM Next.js Application
 
-## Getting Started
+This is a modern CRM (Customer Relationship Management) system built with Next.js, featuring a complete migration from the previous Express.js + React setup to a unified Next.js application.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Frontend**: Next.js 15 with App Router
+- **Authentication**: NextAuth.js with credentials provider
+- **Database**: PostgreSQL with Prisma ORM
+- **UI Components**: shadcn/ui with Tailwind CSS
+- **Package Manager**: pnpm
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- 🔐 Secure authentication with NextAuth.js
+- 👥 Lead management (create, read, update, delete)
+- 📅 Meeting scheduling and management
+- ✅ Task management
+- 📝 Notes system
+- 📊 Dashboard with real-time statistics
+- 🎨 Modern UI with shadcn/ui and Tailwind CSS
+- 📱 Responsive design
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Database Schema
 
-## Learn More
+The application uses the following main entities:
 
-To learn more about Next.js, take a look at the following resources:
+- **Users**: System users with roles and authentication
+- **Leads**: Sales prospects with contact information
+- **Meetings**: Scheduled meetings linked to leads
+- **Tasks**: Todo items associated with leads
+- **Notes**: Text notes for leads
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Setup Instructions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prerequisites
 
-## Deploy on Vercel
+1. PostgreSQL database server running
+2. Node.js 18+ installed
+3. pnpm package manager
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Install dependencies:**
+
+   ```bash
+   cd crm-nextjs
+   pnpm install
+   ```
+
+2. **Set up environment variables:**
+
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+   Update the `.env.local` file with your database credentials:
+
+   ```env
+   DATABASE_URL="postgresql://root:password@localhost:5432/crmdb"
+   NEXTAUTH_SECRET="your-secret-key-here"
+   NEXTAUTH_URL="http://localhost:3000"
+   DB_NAME=crmdb
+   DB_USER=root
+   DB_PASS=password
+   DB_HOST=localhost
+   ```
+
+3. **Generate Prisma client:**
+
+   ```bash
+   pnpm dlx prisma generate
+   ```
+
+4. **Migrate existing database (if needed):**
+   ```bash
+   pnpm dlx prisma db push
+   ```
+
+### Running the Application
+
+1. **Development mode:**
+
+   ```bash
+   pnpm dev
+   ```
+
+2. **From root directory:**
+
+   ```bash
+   pnpm dev-nextjs
+   ```
+
+3. **All applications (original + new):**
+   ```bash
+   pnpm dev-all
+   ```
+
+The application will be available at `http://localhost:3000`
+
+## API Routes
+
+The application provides RESTful API routes:
+
+### Leads
+
+- `GET /api/leads` - Get all leads with filtering and pagination
+- `POST /api/leads` - Create a new lead
+- `GET /api/leads/[id]` - Get specific lead
+- `PUT /api/leads/[id]` - Update lead
+- `DELETE /api/leads/[id]` - Delete lead
+
+### Meetings
+
+- `GET /api/meetings` - Get all meetings
+- `POST /api/meetings` - Create a new meeting
+
+### Tasks
+
+- `GET /api/tasks` - Get all tasks
+- `POST /api/tasks` - Create a new task
+
+### Notes
+
+- `GET /api/notes` - Get all notes
+- `POST /api/notes` - Create a new note
+
+### Dashboard
+
+- `GET /api/dashboard` - Get dashboard statistics
+
+## Authentication
+
+The application uses NextAuth.js with a credentials provider that authenticates against the existing user table. Users can sign in with their username and password.
+
+## Database Connection
+
+The application connects to the existing PostgreSQL database (`crmdb`) and uses the same tables as the original application. The Prisma schema is designed to match the existing Sequelize models.
+
+## Migration Notes
+
+This Next.js application is a complete migration from:
+
+- **Backend**: Express.js → Next.js API routes
+- **Frontend**: React with Vite → Next.js with App Router
+- **ORM**: Sequelize → Prisma
+- **UI Library**: Material-UI → shadcn/ui + Tailwind CSS
+- **Authentication**: Custom JWT → NextAuth.js
+
+## Key Differences from Original
+
+1. **Unified codebase**: Frontend and backend in a single Next.js application
+2. **Modern authentication**: NextAuth.js instead of custom JWT implementation
+3. **Type-safe database access**: Prisma with TypeScript instead of Sequelize
+4. **Modern UI components**: shadcn/ui components instead of Material-UI
+5. **Better developer experience**: App Router, TypeScript, and modern tooling
+
+## Development
+
+The application is structured with:
+
+- `/src/app` - App Router pages and API routes
+- `/src/components` - Reusable UI components
+- `/src/lib` - Utility functions and configurations
+- `/prisma` - Database schema and migrations
+
+## Troubleshooting
+
+1. **Database connection issues**: Verify PostgreSQL is running and credentials are correct
+2. **Authentication issues**: Check NEXTAUTH_SECRET is set and database has user records
+3. **Build issues**: Ensure all dependencies are installed with `pnpm install`
+
+## Future Enhancements
+
+- Add comprehensive form validation
+- Implement advanced filtering and search
+- Add file upload capabilities
+- Email integration for meetings and tasks
+- Real-time notifications
+- Export functionality (CSV, PDF)
+- Advanced reporting and analytics

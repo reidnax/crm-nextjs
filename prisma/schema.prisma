@@ -1,0 +1,285 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  username    String    @unique
+  password    String
+  name        String?
+  role        String?
+  phone       String?
+  email       String    @unique
+  website     String?
+  active      Boolean   @default(true)
+  // Enhanced profile fields (non-breaking)
+  avatar      String? // Profile picture URL
+  department  String? // User department
+  jobTitle    String? // Job title/position
+  bio         String? // Short biography
+  timezone    String? // User timezone
+  lastLoginAt DateTime? // Last login timestamp
+  preferences Json? // User preferences/settings
+  // RBAC fields (non-breaking)
+  managerId   Int? // Manager relationship for hierarchy
+  createdAt   DateTime  @default(now()) @map("createdAt")
+  updatedAt   DateTime  @updatedAt @map("updatedAt")
+
+  // Relations
+  createdLeads    Lead[]    @relation("UserCreatedLeads")
+  assignedLeads   Lead[]    @relation("UserAssignedLeads")
+  createdMeetings Meeting[] @relation("UserCreatedMeetings")
+  createdTasks    Task[]    @relation("UserCreatedTasks")
+  createdNotes    Note[]    @relation("UserCreatedNotes")
+
+  // RBAC relations
+  manager         User?                @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates    User[]               @relation("UserManager")
+  userPermissions UserPermission[]
+  auditLogs       PermissionAuditLog[] @relation("AuditUser")
+  grantedAudits   PermissionAuditLog[] @relation("AuditGrantedBy")
+  ownedResources  ResourceOwnership[]
+
+  @@map("Users")
+}
+
+model Lead {
+  id               Int       @id @default(autoincrement())
+  name             String
+  email            String?   @unique
+  phone            String?
+  alternatePhone   String?
+  company          String?
+  businessCategory String?
+  businessIndustry String?
+  status           String?
+  subStatus        String?
+  convertedStatus  String?
+  state            String?
+  address          String?
+  pincode          String?
+  annualRevenue    Decimal?
+  investmentLimit  Decimal?
+  designation      String?
+  city             String?
+  description      String?
+  website          String?
+  dealer           Json?
+  createdBy        Int?
+  assign           Int?
+  // Enhanced lead fields (non-breaking)
+  priority         String?   @default("Medium") // High, Medium, Low
+  source           String? // Lead source (Website, Referral, etc.)
+  tags             String[] // Tags for categorization
+  socialMedia      Json? // Social media links
+  lastContactDate  DateTime? // Last contact with lead
+  nextFollowUpDate DateTime? // Next planned follow-up
+  leadScore        Int?      @default(0) // Lead scoring
+  isArchived       Boolean   @default(false) // Soft delete
+  customFields     Json? // Custom data fields
+  createdAt        DateTime  @default(now()) @map("createdAt")
+  updatedAt        DateTime  @updatedAt @map("updatedAt")
+
+  // Relations
+  creator  User?     @relation("UserCreatedLeads", fields: [createdBy], references: [id], onDelete: SetNull)
+  assignee User?     @relation("UserAssignedLeads", fields: [assign], references: [id], onDelete: SetNull)
+  meetings Meeting[]
+  tasks    Task[]
+  notes    Note[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([assign])
+  @@index([createdAt])
+  @@map("Leads")
+}
+
+model Meeting {
+  id           Int      @id @default(autoincrement())
+  subject      String
+  description  String?
+  duration     Int
+  startTime    DateTime
+  endTime      DateTime
+  leadId       Int
+  createdBy    Int?
+  // Enhanced meeting fields (non-breaking)
+  status       String?  @default("Scheduled") // Scheduled, In Progress, Completed, Cancelled
+  type         String?  @default("Meeting") // Meeting, Call, Video Call, etc.
+  location     String? // Meeting location or URL
+  agenda       String? // Meeting agenda
+  outcome      String? // Meeting outcome/result
+  priority     String?  @default("Medium") // High, Medium, Low
+  attendees    Json? // List of attendees
+  isRecurring  Boolean  @default(false) // Recurring meeting flag
+  parentId     Int? // For recurring meetings
+  reminderSent Boolean  @default(false) // Reminder notification status
+  createdAt    DateTime @default(now()) @map("createdAt")
+  updatedAt    DateTime @updatedAt @map("updatedAt")
+
+  // Relations
+  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator User? @relation("UserCreatedMeetings", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([startTime])
+  @@index([status])
+  @@index([leadId])
+  @@map("Meetings")
+}
+
+model Task {
+  id             Int       @id @default(autoincrement())
+  subject        String
+  description    String?
+  dueDate        DateTime
+  leadId         Int
+  createdBy      Int?
+  // Enhanced task fields (non-breaking)
+  status         String?   @default("Pending") // Pending, In Progress, Completed, Cancelled
+  priority       String?   @default("Medium") // High, Medium, Low
+  category       String? // Task category (Follow-up, Demo, etc.)
+  estimatedHours Float? // Estimated hours to complete
+  actualHours    Float? // Actual hours spent
+  completedAt    DateTime? // Task completion timestamp
+  tags           String[] // Task tags
+  isRecurring    Boolean   @default(false) // Recurring task flag
+  parentId       Int? // For recurring tasks
+  assignedTo     Int? // Task can be assigned to different user
+  reminderDate   DateTime? // Reminder date
+  createdAt      DateTime  @default(now()) @map("createdAt")
+  updatedAt      DateTime  @updatedAt @map("updatedAt")
+
+  // Relations
+  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([dueDate])
+  @@index([status])
+  @@index([priority])
+  @@index([leadId])
+  @@map("Tasks")
+}
+
+model Note {
+  id          Int      @id @default(autoincrement())
+  subject     String
+  description String
+  leadId      Int
+  createdBy   Int?
+  // Enhanced note fields (non-breaking)
+  type        String?  @default("General") // General, Call Log, Meeting Summary, etc.
+  category    String? // Note category
+  tags        String[] // Note tags
+  isPrivate   Boolean  @default(false) // Private note visibility
+  isPinned    Boolean  @default(false) // Pin important notes
+  attachments Json? // File attachments metadata
+  mentions    String[] // User mentions in note
+  createdAt   DateTime @default(now()) @map("createdAt")
+  updatedAt   DateTime @updatedAt @map("updatedAt")
+
+  // Relations
+  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator User? @relation("UserCreatedNotes", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([type])
+  @@index([isPinned])
+  @@map("Notes")
+}
+
+// RBAC System Tables
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // e.g., 'leads.create', 'users.read.all'
+  description String?
+  category    String? // e.g., 'leads', 'users', 'reports'
+  createdAt   DateTime @default(now()) @map("createdAt")
+  updatedAt   DateTime @updatedAt @map("updatedAt")
+
+  // Relations
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@index([category])
+  @@map("Permissions")
+}
+
+model RolePermission {
+  id           Int      @id @default(autoincrement())
+  role         String // e.g., 'Admin', 'Manager', 'Assignee'
+  permissionId Int
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("createdAt")
+  updatedAt    DateTime @updatedAt @map("updatedAt")
+
+  // Relations
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@index([role])
+  @@map("RolePermissions")
+}
+
+model UserPermission {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  permissionId Int
+  granted      Boolean  @default(true) // true = granted, false = explicitly denied
+  grantedBy    Int? // Who granted this permission
+  createdAt    DateTime @default(now()) @map("createdAt")
+  updatedAt    DateTime @updatedAt @map("updatedAt")
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@map("UserPermissions")
+}
+
+model PermissionAuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int // User whose permissions changed
+  action     String // 'granted', 'revoked', 'role_changed'
+  permission String? // Permission name (null for role changes)
+  oldValue   Json? // Previous value
+  newValue   Json? // New value
+  changedBy  Int? // Who made the change
+  ipAddress  String? // IP address of the change
+  userAgent  String? // User agent string
+  createdAt  DateTime @default(now()) @map("createdAt")
+
+  // Relations
+  user          User  @relation("AuditUser", fields: [userId], references: [id], onDelete: Cascade)
+  changedByUser User? @relation("AuditGrantedBy", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("PermissionAuditLogs")
+}
+
+model ResourceOwnership {
+  id           Int      @id @default(autoincrement())
+  resourceType String // 'lead', 'task', 'meeting', 'note'
+  resourceId   Int // ID of the resource
+  ownerId      Int // Owner user ID
+  createdAt    DateTime @default(now()) @map("createdAt")
+
+  // Relations
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceType, resourceId])
+  @@index([resourceType, resourceId])
+  @@index([ownerId])
+  @@map("ResourceOwnerships")
+}
