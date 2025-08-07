@@ -24,6 +24,7 @@ import {
 import { useState } from "react";
 import { RoleGate } from "@/components/auth/RoleGate";
 import { usePermissions } from "@/contexts/PermissionContext";
+import { SidebarDevSwitcher } from "@/components/dev/SidebarDevSwitcher";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -251,6 +252,9 @@ export default function Sidebar({
               </div>
             </RoleGate>
           </nav>
+
+          {/* Dev Mode Switcher */}
+          <SidebarDevSwitcher isCollapsed={isCollapsed} />
 
           {/* User Actions */}
           <div className="flex-shrink-0 p-2 border-t border-gray-200">

@@ -55,7 +55,7 @@ export function RoleSwitcher() {
     return null;
   }
 
-  const currentRole = virtualSession.data?.user?.role;
+  const currentRole = (virtualSession.data?.user as { role?: string })?.role;
   const IconComponent =
     ROLE_ICONS[currentRole as keyof typeof ROLE_ICONS] || User;
 

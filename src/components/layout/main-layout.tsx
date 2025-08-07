@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { PermissionProvider } from "@/contexts/PermissionContext";
 import { DevModeProvider } from "@/contexts/DevModeContext";
-import { RoleSwitcher } from "@/components/dev/RoleSwitcher";
 import { DevModeIndicator } from "@/components/dev/DevModeIndicator";
 
 interface MainLayoutProps {
@@ -138,7 +137,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </main>
           </div>
           <Toaster />
-          <RoleSwitcher />
         </div>
       </PermissionProvider>
     </DevModeProvider>

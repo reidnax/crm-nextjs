@@ -73,34 +73,101 @@ export async function GET() {
       };
     }
 
-    // Performance analysis
+    // Test ultra-optimized dashboard API
+    PerformanceMonitor.start("ultra-optimized-dashboard");
+    try {
+      const ultraOptimizedResponse = await fetch(
+        `${
+          process.env.NEXTAUTH_URL || "http://localhost:3000"
+        }/api/dashboard/ultra-optimized`,
+        {
+          headers: {
+            Cookie: `next-auth.session-token=${session.user?.id}`,
+          },
+        }
+      );
+
+      const ultraOptimizedData = await ultraOptimizedResponse.json();
+      results.ultraOptimizedDashboard = {
+        status: ultraOptimizedResponse.status,
+        duration: PerformanceMonitor.end("ultra-optimized-dashboard"),
+        success: ultraOptimizedResponse.ok,
+        dataSize: JSON.stringify(ultraOptimizedData).length,
+      };
+    } catch (error) {
+      results.ultraOptimizedDashboard = {
+        status: "error",
+        duration: PerformanceMonitor.end("ultra-optimized-dashboard"),
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+
+    // Performance analysis - compare all three APIs
+    const durations = [
+      results.regularDashboard.duration,
+      results.optimizedDashboard.duration,
+      results.ultraOptimizedDashboard.duration,
+    ];
+    const fastest = Math.min(...durations);
+    const slowest = Math.max(...durations);
+    const fastestApi = durations.indexOf(fastest);
+    const apiNames = ["Regular", "Optimized", "Ultra-Optimized"];
+
     results.analysis = {
-      regularFaster:
-        results.regularDashboard.duration < results.optimizedDashboard.duration,
+      fastest: apiNames[fastestApi],
+      slowest: apiNames[durations.indexOf(slowest)],
       improvement:
-        results.regularDashboard.duration > 0 &&
-        results.optimizedDashboard.duration > 0
-          ? Math.round(
-              ((results.regularDashboard.duration -
-                results.optimizedDashboard.duration) /
-                results.regularDashboard.duration) *
-                100
-            )
-          : 0,
+        slowest > 0 ? Math.round(((slowest - fastest) / slowest) * 100) : 0,
       recommendation:
-        results.regularDashboard.duration > results.optimizedDashboard.duration
-          ? "Use optimized dashboard API for better performance"
-          : "Regular dashboard is performing well",
+        fastestApi === 0
+          ? "Regular dashboard is performing best"
+          : fastestApi === 1
+          ? "Optimized dashboard provides best performance"
+          : "Ultra-optimized dashboard offers the best performance",
+      comparison: {
+        regularVsOptimized:
+          results.regularDashboard.duration > 0 &&
+          results.optimizedDashboard.duration > 0
+            ? Math.round(
+                ((results.regularDashboard.duration -
+                  results.optimizedDashboard.duration) /
+                  results.regularDashboard.duration) *
+                  100
+              )
+            : 0,
+        regularVsUltra:
+          results.regularDashboard.duration > 0 &&
+          results.ultraOptimizedDashboard.duration > 0
+            ? Math.round(
+                ((results.regularDashboard.duration -
+                  results.ultraOptimizedDashboard.duration) /
+                  results.regularDashboard.duration) *
+                  100
+              )
+            : 0,
+        optimizedVsUltra:
+          results.optimizedDashboard.duration > 0 &&
+          results.ultraOptimizedDashboard.duration > 0
+            ? Math.round(
+                ((results.optimizedDashboard.duration -
+                  results.ultraOptimizedDashboard.duration) /
+                  results.optimizedDashboard.duration) *
+                  100
+              )
+            : 0,
+      },
     };
 
     // Bottleneck identification
     results.bottleneck = {
       isDatabase:
         results.regularDashboard.duration > 2000 ||
-        results.optimizedDashboard.duration > 2000,
+        results.optimizedDashboard.duration > 2000 ||
+        results.ultraOptimizedDashboard.duration > 2000,
       isVercel:
         results.regularDashboard.duration < 1000 &&
-        results.optimizedDashboard.duration < 1000,
+        results.optimizedDashboard.duration < 1000 &&
+        results.ultraOptimizedDashboard.duration < 1000,
       isNetwork: results.regularDashboard.duration > 5000,
     };
 

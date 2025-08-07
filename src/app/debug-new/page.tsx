@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import PerformanceMonitorNew from "@/components/debug/PerformanceMonitorNew";
+import EnhancedPerformanceMonitor from "@/components/debug/EnhancedPerformanceMonitor";
 import { RoleGate } from "@/components/auth/RoleGate";
 
 export default function DebugNewPage() {
@@ -39,7 +40,16 @@ export default function DebugNewPage() {
           </p>
         </div>
 
-        <PerformanceMonitorNew />
+        <div className="space-y-8">
+          <EnhancedPerformanceMonitor />
+
+          <div className="border-t pt-8">
+            <h2 className="text-xl font-semibold mb-4">
+              Legacy Performance Tools
+            </h2>
+            <PerformanceMonitorNew />
+          </div>
+        </div>
       </div>
     </RoleGate>
   );

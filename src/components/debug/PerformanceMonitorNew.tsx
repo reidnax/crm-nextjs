@@ -70,10 +70,22 @@ interface DashboardComparison {
     success: boolean;
     dataSize: number;
   };
+  ultraOptimizedDashboard: {
+    status: number;
+    duration: number;
+    success: boolean;
+    dataSize: number;
+  };
   analysis: {
-    regularFaster: boolean;
+    fastest: string;
+    slowest: string;
     improvement: number;
     recommendation: string;
+    comparison: {
+      regularVsOptimized: number;
+      regularVsUltra: number;
+      optimizedVsUltra: number;
+    };
   };
   bottleneck: {
     isDatabase: boolean;
@@ -258,10 +270,14 @@ export default function PerformanceMonitorNew() {
                 <div className="flex items-center gap-2">
                   <Badge
                     className={
-                      getPerformanceStatus(performanceData.totalDuration || 0).color
+                      getPerformanceStatus(performanceData.totalDuration || 0)
+                        .color
                     }
                   >
-                    {getPerformanceStatus(performanceData.totalDuration || 0).status}
+                    {
+                      getPerformanceStatus(performanceData.totalDuration || 0)
+                        .status
+                    }
                   </Badge>
                   <span className="text-sm text-gray-600">
                     {performanceData.totalDuration || 0}ms
@@ -280,7 +296,8 @@ export default function PerformanceMonitorNew() {
               <div className="space-y-2">
                 <h4 className="font-medium">Environment</h4>
                 <div className="text-sm text-gray-600">
-                  {performanceData.environment || "Unknown"} ({performanceData.region || "Unknown"})
+                  {performanceData.environment || "Unknown"} (
+                  {performanceData.region || "Unknown"})
                 </div>
               </div>
             </div>
@@ -322,16 +339,17 @@ export default function PerformanceMonitorNew() {
               </div>
             </div>
 
-            {performanceData.recommendations && performanceData.recommendations.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Recommendations</h4>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                  {performanceData.recommendations.map((rec, index) => (
-                    <li key={index}>{rec}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {performanceData.recommendations &&
+              performanceData.recommendations.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Recommendations</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                    {performanceData.recommendations.map((rec, index) => (
+                      <li key={index}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
           </CardContent>
         </Card>
       )}
@@ -345,7 +363,7 @@ export default function PerformanceMonitorNew() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <h4 className="font-medium">Regular Dashboard</h4>
                 <div className="space-y-1">
@@ -393,11 +411,41 @@ export default function PerformanceMonitorNew() {
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <h4 className="font-medium">Ultra-Optimized Dashboard</h4>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        dashboardComparison.ultraOptimizedDashboard.success
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {dashboardComparison.ultraOptimizedDashboard.status}
+                    </Badge>
+                    <span className="text-sm text-gray-600">
+                      {dashboardComparison.ultraOptimizedDashboard.duration}ms
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Data size:{" "}
+                    {dashboardComparison.ultraOptimizedDashboard.dataSize} bytes
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
               <h4 className="font-medium">Analysis</h4>
               <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Fastest:</span>
+                  <Badge variant="default">
+                    {dashboardComparison.analysis.fastest}
+                  </Badge>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm">Improvement:</span>
                   <Badge
@@ -412,6 +460,62 @@ export default function PerformanceMonitorNew() {
                 </div>
                 <div className="text-sm text-gray-600">
                   {dashboardComparison.analysis.recommendation}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium">Detailed Comparison</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span>Regular vs Optimized:</span>
+                    <Badge
+                      variant={
+                        dashboardComparison.analysis.comparison
+                          .regularVsOptimized > 0
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {
+                        dashboardComparison.analysis.comparison
+                          .regularVsOptimized
+                      }
+                      %
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span>Regular vs Ultra:</span>
+                    <Badge
+                      variant={
+                        dashboardComparison.analysis.comparison.regularVsUltra >
+                        0
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {dashboardComparison.analysis.comparison.regularVsUltra}%
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span>Optimized vs Ultra:</span>
+                    <Badge
+                      variant={
+                        dashboardComparison.analysis.comparison
+                          .optimizedVsUltra > 0
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {dashboardComparison.analysis.comparison.optimizedVsUltra}
+                      %
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </div>

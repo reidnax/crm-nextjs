@@ -51,7 +51,7 @@ export class PermissionManager {
 
       // Get real user with role and relationships
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: parseInt(userId.toString()) },
         include: {
           userPermissions: {
             include: {
