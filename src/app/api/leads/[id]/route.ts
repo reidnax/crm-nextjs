@@ -6,6 +6,7 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { processLeadData } from "@/lib/lead-data-processor";
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
+import { validateLeadData } from "@/lib/validations/lead-validation";
 
 // Helper function to check if user can access a specific lead
 async function canAccessLead(
@@ -185,8 +186,36 @@ export async function PUT(
       return errorResponse("Lead not found", 404);
     }
 
+    // Comprehensive validation using Zod
+    const validationResult = validateLeadData(body);
+
+    if (!validationResult.success) {
+      // Extract field-specific errors for the frontend
+      const validationErrors: Record<string, string> = {};
+
+      validationResult.error.errors.forEach((error) => {
+        const fieldPath = error.path.join(".");
+        if (!validationErrors[fieldPath]) {
+          validationErrors[fieldPath] = error.message;
+        }
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Validation failed",
+          validationErrors,
+          details: validationResult.error.errors,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Process form data to handle date and numeric fields
-    const processedData = processLeadData(body);
+    const processedData = processLeadData(validationResult.data);
 
     const updatedLead = await prisma.lead.update({
       where: { id: leadId },

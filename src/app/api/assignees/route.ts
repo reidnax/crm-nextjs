@@ -17,9 +17,7 @@ export async function GET(request: NextRequest) {
     const pageSize = searchParams.get("pageSize") || "10";
 
     const where: Record<string, unknown> = {
-      assignedLeads: {
-        some: {}, // Users who have at least one assigned lead
-      },
+      active: true, // Only include active users
     };
 
     // Add search functionality
@@ -46,6 +44,8 @@ export async function GET(request: NextRequest) {
           name: true,
           username: true,
           email: true,
+          active: true,
+          role: true,
           _count: {
             select: {
               assignedLeads: true,

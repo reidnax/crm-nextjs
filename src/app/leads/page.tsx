@@ -29,15 +29,18 @@ interface Lead {
   businessIndustry?: string;
   status?: string;
   subStatus?: string;
+  priority?: string;
   createdAt: string;
   creator?: {
     name: string;
     username: string;
   };
   assignee?: {
+    id: number;
     name: string;
     username: string;
   };
+  assign?: number;
 }
 
 export default function LeadsPage() {
@@ -47,12 +50,14 @@ export default function LeadsPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [updatingLeadIds, setUpdatingLeadIds] = useState<number[]>([]);
 
   // Filter state
   const [filters, setFilters] = useState<FilterValues>({
     search: "",
     status: [],
     subStatus: [],
+    priority: [],
     assignee: [],
     businessCategory: [],
     businessIndustry: [],
@@ -216,6 +221,77 @@ export default function LeadsPage() {
 
   // Memoize leads array to prevent table rows from re-rendering unnecessarily
   const memoizedLeads = useMemo(() => leads, [leads]);
+
+  // Force refresh data from server
+  const refreshLeads = useCallback(() => {
+    if (session) {
+      fetchLeads(currentPage, pageSize, debouncedFilters);
+    }
+  }, [session, currentPage, pageSize, debouncedFilters, fetchLeads]);
+
+  // Handle lead updates
+  const handleLeadUpdate = useCallback(
+    async (leadId: number, data: Partial<Lead>) => {
+      // Add lead ID to updating state
+      setUpdatingLeadIds((prev) => [...prev, leadId]);
+
+      try {
+        // Handle the case where assign is set to undefined
+        // The API expects null for removing an assignee
+        const apiData: Record<string, unknown> = { ...data };
+        if ("assign" in data && data.assign === undefined) {
+          apiData.assign = null;
+        }
+
+        const response = await fetch(`/api/leads/${leadId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(apiData),
+        });
+
+        const result = await response.json();
+        console.log("Lead update result:", result, "Data sent:", data);
+
+        if (result.success) {
+          // Update the lead in the local state to avoid refetching the entire list
+          setLeads((prevLeads) => {
+            const updatedLeads = prevLeads.map((lead) =>
+              lead.id === leadId
+                ? {
+                    ...lead,
+                    ...data,
+                    // Always use the assignee from the API response if available
+                    assignee: result.data.assignee,
+                    // Make sure assign is updated correctly
+                    assign: "assign" in data ? data.assign : lead.assign,
+                  }
+                : lead
+            );
+            console.log(
+              "Updated lead state:",
+              updatedLeads.find((l) => l.id === leadId)
+            );
+            return updatedLeads;
+          });
+
+          // Force refresh data from server to ensure consistency
+          setTimeout(() => refreshLeads(), 500);
+        } else {
+          console.error("Failed to update lead:", result.error);
+          // Could add toast notification here
+        }
+      } catch (error) {
+        console.error("Error updating lead:", error);
+        // Could add toast notification here
+      } finally {
+        // Remove lead ID from updating state
+        setUpdatingLeadIds((prev) => prev.filter((id) => id !== leadId));
+      }
+    },
+    [refreshLeads]
+  );
 
   // Filter handlers
   const handleFiltersChange = useCallback((newFilters: FilterValues) => {
@@ -397,7 +473,12 @@ export default function LeadsPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <LeadsTable leads={memoizedLeads} loading={loadingRef.current} />
+          <LeadsTable
+            leads={memoizedLeads}
+            loading={loadingRef.current}
+            onLeadUpdate={handleLeadUpdate}
+            updatingLeadIds={updatingLeadIds}
+          />
           {memoizedLeads.length === 0 &&
             !loadingRef.current &&
             !debouncedFilters.search && (

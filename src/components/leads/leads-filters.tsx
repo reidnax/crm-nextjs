@@ -39,6 +39,7 @@ export interface FilterValues {
   search: string;
   status: string[];
   subStatus: string[];
+  priority: string[];
   assignee: string[];
   businessCategory: string[];
   businessIndustry: string[];
@@ -66,6 +67,8 @@ const STATUS_OPTIONS = [
 ];
 
 const SUB_STATUS_OPTIONS = ["Hot", "Warm", "Cold"];
+
+const PRIORITY_OPTIONS = ["High", "Medium", "Low"];
 
 const BUSINESS_CATEGORIES = [
   "Manufacturing",
@@ -107,6 +110,12 @@ const QUICK_FILTERS = [
     label: "Hot",
     icon: TrendingUp,
     filters: { subStatus: ["Hot"] },
+    color: "bg-red-100 text-red-700 hover:bg-red-200",
+  },
+  {
+    label: "High Priority",
+    icon: TrendingUp,
+    filters: { priority: ["High"] },
     color: "bg-red-100 text-red-700 hover:bg-red-200",
   },
   {
@@ -256,6 +265,29 @@ export default function LeadsFilters({
               e.preventDefault();
               e.stopPropagation();
               handleFilterChange("subStatus", []);
+            }}
+          >
+            <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
+          </button>
+        </Badge>
+      );
+    }
+
+    if (filters.priority.length > 0) {
+      badges.push(
+        <Badge
+          key="priority"
+          variant="secondary"
+          className="gap-1 text-xs pl-2 pr-1 flex items-center"
+        >
+          <span>Priority ({filters.priority.length})</span>
+          <button
+            type="button"
+            className="ml-1 p-0.5 hover:bg-red-100 rounded-sm transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleFilterChange("priority", []);
             }}
           >
             <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
@@ -421,6 +453,13 @@ export default function LeadsFilters({
                 SUB_STATUS_OPTIONS,
                 "subStatus",
                 filters.subStatus
+              )}
+              <Separator />
+              {renderCheckboxFilter(
+                "Priority",
+                PRIORITY_OPTIONS,
+                "priority",
+                filters.priority
               )}
             </TabsContent>
 

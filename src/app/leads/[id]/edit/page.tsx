@@ -5,13 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import LeadForm from "@/components/forms/lead-form";
-
-// Import the type from the lead form
-type LeadFormData = Parameters<typeof LeadForm>[0]["onSubmit"] extends (
-  data: infer T
-) => void
-  ? T
-  : never;
+import { type LeadFormData } from "@/lib/validations/lead-validation";
 
 export default function EditLeadPage() {
   const { data: session, status } = useSession();
@@ -22,6 +16,7 @@ export default function EditLeadPage() {
   const [lead, setLead] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
 
   const fetchLead = useCallback(async () => {
     try {
@@ -82,6 +77,8 @@ export default function EditLeadPage() {
 
   const handleSubmit = async (formData: LeadFormData) => {
     setIsLoading(true);
+    setServerErrors({}); // Clear previous server errors
+
     try {
       const response = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
@@ -98,7 +95,14 @@ export default function EditLeadPage() {
         router.push(`/leads/${leadId}`);
       } else {
         console.error("Failed to update lead:", result.error);
-        toast.error(result.error || "Failed to update lead");
+
+        // Handle validation errors from server
+        if (result.validationErrors) {
+          setServerErrors(result.validationErrors);
+          toast.error("Please fix the validation errors and try again");
+        } else {
+          toast.error(result.error || "Failed to update lead");
+        }
       }
     } catch (error) {
       console.error("Error updating lead:", error);
@@ -119,6 +123,7 @@ export default function EditLeadPage() {
       onSubmit={handleSubmit}
       onCancel={handleCancel}
       isLoading={isLoading}
+      serverErrors={serverErrors}
     />
   );
 }
