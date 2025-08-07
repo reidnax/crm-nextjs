@@ -1,11 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
@@ -131,9 +131,9 @@ export const authOptions = {
           }
         } catch (error) {
           // Silently ignore impersonation errors to avoid breaking normal sessions
-          console.error("Impersonation session error:", error);
         }
       }
+
       return session;
     },
   },
@@ -142,7 +142,5 @@ export const authOptions = {
   },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handler = (NextAuth as any)(authOptions);
-export default handler;
-export { handler };
+// NextAuth configuration is exported as authOptions
+// The handler is created in the API route file

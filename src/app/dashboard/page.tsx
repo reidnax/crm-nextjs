@@ -62,10 +62,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (session) {
+    // Fetch dashboard data when user is authenticated
+    if (session && status === "authenticated") {
       fetchDashboardData();
+    } else if (status === "unauthenticated") {
+      // Stop loading if user is unauthenticated
+      setLoading(false);
     }
-  }, [session]);
+  }, [session, status]);
 
   const fetchDashboardData = async () => {
     try {
@@ -81,12 +85,18 @@ export default function DashboardPage() {
     }
   };
 
-  if (status === "loading" || loading) {
+  if (status === "loading") {
     return <div className="container mx-auto p-6">Loading...</div>;
   }
 
-  if (!session) {
+  if (status === "unauthenticated" || !session) {
     return <div>Access Denied</div>;
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">Loading dashboard data...</div>
+    );
   }
 
   return (

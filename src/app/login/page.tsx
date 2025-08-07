@@ -35,10 +35,44 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError("Invalid username or password");
+      } else if (result?.ok) {
+        // Wait for session to be established by polling
+        let retries = 0;
+        const maxRetries = 10;
+
+        const checkSession = async () => {
+          try {
+            const response = await fetch("/api/auth/session");
+            const sessionData = await response.json();
+
+            if (sessionData?.user) {
+              // Use full page navigation to ensure session cookies are properly loaded
+              window.location.href = "/dashboard";
+              return;
+            }
+
+            retries++;
+            if (retries < maxRetries) {
+              setTimeout(checkSession, 200); // Check every 200ms
+            } else {
+              window.location.href = "/dashboard";
+            }
+          } catch (error) {
+            retries++;
+            if (retries < maxRetries) {
+              setTimeout(checkSession, 200);
+            } else {
+              window.location.href = "/dashboard";
+            }
+          }
+        };
+
+        // Start checking for session after a small delay
+        setTimeout(checkSession, 100);
       } else {
-        router.push("/dashboard");
+        setError("Login failed. Please try again.");
       }
-    } catch {
+    } catch (error) {
       setError("An error occurred. Please try again.");
     }
 
