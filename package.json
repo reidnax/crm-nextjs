@@ -17,7 +17,10 @@
     "migrate:deploy": "node scripts/migrate.js migrate",
     "migrate:seed": "node scripts/migrate.js seed",
     "migrate:status": "node scripts/migrate.js status",
-    "vercel:migrate": "node scripts/migrate.js setup"
+    "vercel:migrate": "node scripts/migrate.js setup",
+    "extract:old-schema": "node scripts/extract-old-schema.js",
+    "migrate:old-data": "node scripts/migrate-old-data.js",
+    "setup:rbac-aligned": "node scripts/setup-rbac-system-aligned.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -47,6 +50,7 @@
     "next": "15.4.5",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
+    "pg": "^8.16.3",
     "prisma": "^6.13.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
