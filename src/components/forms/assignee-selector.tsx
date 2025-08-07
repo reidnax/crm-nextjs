@@ -25,6 +25,8 @@ interface Assignee {
   name: string;
   username?: string;
   email?: string;
+  active?: boolean;
+  role?: string;
   _count?: {
     assignedLeads: number;
   };
@@ -86,7 +88,10 @@ export const AssigneeSelector = React.memo(
           const result = await response.json();
 
           if (result.success) {
-            const newAssignees = result.data.assignees;
+            // Filter to only include active users
+            const newAssignees = result.data.assignees.filter(
+              (assignee: Assignee) => assignee.active !== false
+            );
 
             if (reset || pageNum === 1) {
               setAssignees(newAssignees);

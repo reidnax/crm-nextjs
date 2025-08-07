@@ -78,5 +78,47 @@ export function processLeadData(
     }
   });
 
+  // Handle decimal fields that might be empty strings (stored as Decimal in DB)
+  const decimalFields = ["annualRevenue", "investmentLimit"];
+  decimalFields.forEach((field) => {
+    if (processedData[field] === "" || processedData[field] === undefined) {
+      processedData[field] = null; // Use null for empty decimal fields
+    } else if (typeof processedData[field] === "string") {
+      // Remove currency symbols and commas for processing
+      const cleanValue = processedData[field].replace(/[\$₹€£¥,\s]/g, "");
+      if (cleanValue === "") {
+        processedData[field] = null;
+      } else {
+        const num = parseFloat(cleanValue);
+        processedData[field] = isNaN(num) ? null : num;
+      }
+    }
+  });
+
+  // Handle string fields that should be null when empty (for database storage)
+  const stringFields = [
+    "email",
+    "phone",
+    "alternatePhone",
+    "company",
+    "businessCategory",
+    "businessIndustry",
+    "subStatus",
+    "convertedStatus",
+    "state",
+    "city",
+    "address",
+    "pincode",
+    "website",
+    "description",
+    "designation",
+    "source",
+  ];
+  stringFields.forEach((field) => {
+    if (processedData[field] === "" || processedData[field] === undefined) {
+      processedData[field] = null;
+    }
+  });
+
   return processedData;
 }

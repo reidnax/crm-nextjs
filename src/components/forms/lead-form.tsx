@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,115 +22,69 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import DealerForm from "./dealer-form";
-
-interface DealerFormData {
-  date?: string;
-  evBusiness?: string;
-  evBusinessStatus?: string;
-  longTermGoals?: string;
-  achieveAvoid?: string;
-  goalBarrier?: string;
-  problems?: string[];
-  improvementInterest?: string;
-  [key: string]: string | string[] | undefined; // Add index signature
-}
-
-interface SocialMediaData {
-  linkedin?: string;
-  twitter?: string;
-  facebook?: string;
-  instagram?: string;
-  website?: string;
-}
-
-interface LeadFormData {
-  name: string;
-  email: string;
-  phone: string;
-  alternatePhone: string;
-  company: string;
-  businessCategory: string;
-  businessIndustry: string;
-  status: string;
-  subStatus: string;
-  convertedStatus: string;
-  priority: string;
-  state: string;
-  city: string;
-  address: string;
-  pincode: string;
-  website: string;
-  description: string;
-  designation: string;
-  annualRevenue: string;
-  investmentLimit: string;
-  source: string;
-  tags: string[];
-  dealer: DealerFormData;
-  socialMedia: SocialMediaData;
-  lastContactDate: string;
-  nextFollowUpDate: string;
-  leadScore: number;
-}
+import {
+  leadValidationSchema,
+  type LeadFormData,
+  type LeadInitialData,
+  getFieldError,
+  LEAD_STATUSES,
+  SUB_STATUSES,
+  CONVERTED_STATUSES,
+  PRIORITIES,
+  BUSINESS_CATEGORIES,
+  LEAD_SOURCES,
+} from "@/lib/validations/lead-validation";
 
 interface LeadFormProps {
-  initialData?: Partial<LeadFormData> & {
-    // Allow these to be null from database but we'll handle them safely
-    socialMedia?: SocialMediaData | null;
-    dealer?: DealerFormData | null;
-    tags?: string[] | null;
-    lastContactDate?: string | null;
-    nextFollowUpDate?: string | null;
-  };
+  initialData?: LeadInitialData;
   onSubmit: (data: LeadFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
   mode?: "create" | "edit";
+  serverErrors?: Record<string, string>;
 }
 
-const LEAD_STATUSES = [
-  "Unassigned",
-  "To be contacted",
-  "Attempted to contact",
-  "Contacted",
-  "Contact in future",
-  "Qualified",
-  "Not Qualified",
-  "Meeting",
-  "Product/Plant Visit",
-  "Converted",
-  "Not Converted",
-];
-
-const SUB_STATUSES = ["Hot", "Warm", "Cold"];
-
-const CONVERTED_STATUSES = ["Won", "Lost", "Pending", "On Hold"];
-
-const PRIORITIES = ["Low", "Medium", "High"];
-
-const BUSINESS_CATEGORIES = [
-  "Manufacturing",
-  "Trading",
-  "Service",
-  "Retail",
-  "Technology",
-  "Healthcare",
-  "Education",
-  "Other",
-];
-
-const LEAD_SOURCES = [
-  "Website",
-  "Social Media",
-  "Referral",
-  "Cold Call",
-  "Email Campaign",
-  "Trade Show",
-  "Advertisement",
-  "Other",
-];
+// Helper function to ensure all values are strings instead of null
+const sanitizeInitialData = (data: LeadInitialData): LeadFormData => {
+  return {
+    name: data.name || "",
+    email: data.email || "",
+    phone: data.phone || "",
+    alternatePhone: data.alternatePhone || "",
+    company: data.company || "",
+    businessCategory: data.businessCategory || "",
+    businessIndustry: data.businessIndustry || "",
+    status: data.status || "New",
+    subStatus: data.subStatus || "",
+    convertedStatus: data.convertedStatus || "",
+    priority: data.priority || "Medium",
+    state: data.state || "",
+    city: data.city || "",
+    address: data.address || "",
+    pincode: data.pincode || "",
+    website: data.website || "",
+    description: data.description || "",
+    designation: data.designation || "",
+    annualRevenue: data.annualRevenue || "",
+    investmentLimit: data.investmentLimit || "",
+    source: data.source || "",
+    tags: data.tags || [],
+    dealer: data.dealer || {},
+    socialMedia: {
+      linkedin: data.socialMedia?.linkedin || "",
+      twitter: data.socialMedia?.twitter || "",
+      facebook: data.socialMedia?.facebook || "",
+      instagram: data.socialMedia?.instagram || "",
+      website: data.socialMedia?.website || "",
+    },
+    lastContactDate: data.lastContactDate || "",
+    nextFollowUpDate: data.nextFollowUpDate || "",
+    leadScore: data.leadScore || 0,
+  };
+};
 
 export default function LeadForm({
   initialData = {},
@@ -136,77 +92,61 @@ export default function LeadForm({
   onCancel,
   isLoading = false,
   mode = "create",
+  serverErrors = {},
 }: LeadFormProps) {
-  const [formData, setFormData] = useState<LeadFormData>(() => {
-    const defaults: LeadFormData = {
-      name: "",
-      email: "",
-      phone: "",
-      alternatePhone: "",
-      company: "",
-      businessCategory: "",
-      businessIndustry: "",
-      status: "New",
-      subStatus: "",
-      convertedStatus: "",
-      priority: "Medium",
-      state: "",
-      city: "",
-      address: "",
-      pincode: "",
-      website: "",
-      description: "",
-      designation: "",
-      annualRevenue: "",
-      investmentLimit: "",
-      source: "",
-      tags: [],
-      dealer: {},
-      socialMedia: {},
-      lastContactDate: "",
-      nextFollowUpDate: "",
-      leadScore: 0,
-    };
+  const [newTag, setNewTag] = useState("");
 
-    return {
-      ...defaults,
-      ...initialData,
-      // Ensure socialMedia and dealer are always objects, not null
-      socialMedia: initialData?.socialMedia || {},
-      dealer: initialData?.dealer || {},
-      tags: initialData?.tags || [],
-      // Ensure date fields are always strings, not null
-      lastContactDate: initialData?.lastContactDate || "",
-      nextFollowUpDate: initialData?.nextFollowUpDate || "",
-    };
+  // Sanitize initial data to ensure no null values
+  const sanitizedData = sanitizeInitialData(initialData);
+
+  // Set up react-hook-form with Zod validation
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isDirty },
+    setValue,
+    watch,
+    setError,
+    clearErrors,
+  } = useForm({
+    resolver: zodResolver(leadValidationSchema),
+    defaultValues: sanitizedData,
+    mode: "onChange", // Validate on change for better UX
   });
 
-  const [newTag, setNewTag] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // Watch tags for dynamic management
+  const watchedTags = watch("tags");
 
-  const handleInputChange = (field: keyof LeadFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
+  // Set server errors on component mount or when they change
+  useEffect(() => {
+    if (serverErrors && Object.keys(serverErrors).length > 0) {
+      Object.entries(serverErrors).forEach(([field, message]) => {
+        setError(field as any, {
+          type: "server",
+          message: message,
+        });
+      });
     }
-  };
+  }, [serverErrors, setError]);
 
+  // Tag management functions
   const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }));
+    if (newTag.trim() && !watchedTags?.includes(newTag.trim())) {
+      const currentTags = watchedTags || [];
+      setValue("tags", [...currentTags, newTag.trim()], {
+        shouldValidate: true,
+      });
       setNewTag("");
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
-    }));
+    const currentTags = watchedTags || [];
+    setValue(
+      "tags",
+      currentTags.filter((tag) => tag !== tagToRemove),
+      { shouldValidate: true }
+    );
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -216,39 +156,24 @@ export default function LeadForm({
     }
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  // Form submission with react-hook-form
+  const onFormSubmit = (data: any) => {
+    // Clear any server errors before submitting
+    Object.keys(serverErrors).forEach((field) => {
+      clearErrors(field);
+    });
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-
-    if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      newErrors.email = "Invalid email format";
-    }
-
-    if (formData.phone && !formData.phone.match(/^[\d\s\-\+\(\)]+$/)) {
-      newErrors.phone = "Invalid phone format";
-    }
-
-    if (formData.website && !formData.website.match(/^https?:\/\/.+/)) {
-      newErrors.website = "Website must start with http:// or https://";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    onSubmit(data as LeadFormData);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      onSubmit(formData);
-    }
+  // Helper function to get field error message
+  const getErrorMessage = (fieldName: string): string | undefined => {
+    return getFieldError(errors, fieldName);
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -261,6 +186,26 @@ export default function LeadForm({
             </p>
           </div>
         </div>
+
+        {/* Error Summary */}
+        {Object.keys(errors).length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Please fix the following errors before submitting:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field} className="text-sm">
+                    <strong className="capitalize">{field}:</strong>{" "}
+                    {typeof error === "object" && error?.message
+                      ? error.message
+                      : String(error)}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Basic Information */}
@@ -276,67 +221,95 @@ export default function LeadForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        handleInputChange("name", e.target.value)
-                      }
-                      placeholder="Enter lead name"
-                      className={errors.name ? "border-red-500" : ""}
+                    <Controller
+                      name="name"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="name"
+                          placeholder="Enter lead name"
+                          className={
+                            getErrorMessage("name") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
-                    {errors.name && (
-                      <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+                    {getErrorMessage("name") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("name")}
+                      </p>
                     )}
                   </div>
 
                   <div>
                     <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      value={formData.company}
-                      onChange={(e) =>
-                        handleInputChange("company", e.target.value)
-                      }
-                      placeholder="Company name"
+                    <Controller
+                      name="company"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="company"
+                          placeholder="Company name"
+                          className={
+                            getErrorMessage("company") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("company") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("company")}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                      placeholder="email@example.com"
-                      className={errors.email ? "border-red-500" : ""}
+                    <Controller
+                      name="email"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="email"
+                          type="email"
+                          placeholder="email@example.com"
+                          className={
+                            getErrorMessage("email") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
-                    {errors.email && (
+                    {getErrorMessage("email") && (
                       <p className="text-sm text-red-500 mt-1">
-                        {errors.email}
+                        {getErrorMessage("email")}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        handleInputChange("phone", e.target.value)
-                      }
-                      placeholder="+1 (555) 123-4567"
-                      className={errors.phone ? "border-red-500" : ""}
+                    <Controller
+                      name="phone"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="phone"
+                          placeholder="+1 (555) 123-4567"
+                          className={
+                            getErrorMessage("phone") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
-                    {errors.phone && (
+                    {getErrorMessage("phone") && (
                       <p className="text-sm text-red-500 mt-1">
-                        {errors.phone}
+                        {getErrorMessage("phone")}
                       </p>
                     )}
                   </div>
@@ -345,43 +318,74 @@ export default function LeadForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="alternatePhone">Alternate Phone</Label>
-                    <Input
-                      id="alternatePhone"
-                      value={formData.alternatePhone}
-                      onChange={(e) =>
-                        handleInputChange("alternatePhone", e.target.value)
-                      }
-                      placeholder="Alternate phone number"
+                    <Controller
+                      name="alternatePhone"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="alternatePhone"
+                          placeholder="Alternate phone number"
+                          className={
+                            getErrorMessage("alternatePhone")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("alternatePhone") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("alternatePhone")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <Label htmlFor="designation">Designation</Label>
-                    <Input
-                      id="designation"
-                      value={formData.designation}
-                      onChange={(e) =>
-                        handleInputChange("designation", e.target.value)
-                      }
-                      placeholder="Job title"
+                    <Controller
+                      name="designation"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="designation"
+                          placeholder="Job title"
+                          className={
+                            getErrorMessage("designation")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("designation") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("designation")}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    value={formData.website}
-                    onChange={(e) =>
-                      handleInputChange("website", e.target.value)
-                    }
-                    placeholder="https://company.com"
-                    className={errors.website ? "border-red-500" : ""}
+                  <Controller
+                    name="website"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="website"
+                        placeholder="https://company.com"
+                        className={
+                          getErrorMessage("website") ? "border-red-500" : ""
+                        }
+                      />
+                    )}
                   />
-                  {errors.website && (
+                  {getErrorMessage("website") && (
                     <p className="text-sm text-red-500 mt-1">
-                      {errors.website}
+                      {getErrorMessage("website")}
                     </p>
                   )}
                 </div>
@@ -398,61 +402,115 @@ export default function LeadForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="businessCategory">Business Category</Label>
-                    <Select
-                      value={formData.businessCategory}
-                      onValueChange={(value) =>
-                        handleInputChange("businessCategory", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BUSINESS_CATEGORIES.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      name="businessCategory"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            className={
+                              getErrorMessage("businessCategory")
+                                ? "border-red-500"
+                                : ""
+                            }
+                          >
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BUSINESS_CATEGORIES.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {getErrorMessage("businessCategory") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("businessCategory")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <Label htmlFor="businessIndustry">Business Industry</Label>
-                    <Input
-                      id="businessIndustry"
-                      value={formData.businessIndustry}
-                      onChange={(e) =>
-                        handleInputChange("businessIndustry", e.target.value)
-                      }
-                      placeholder="Specific industry"
+                    <Controller
+                      name="businessIndustry"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="businessIndustry"
+                          placeholder="Specific industry"
+                          className={
+                            getErrorMessage("businessIndustry")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("businessIndustry") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("businessIndustry")}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="annualRevenue">Annual Revenue</Label>
-                    <Input
-                      id="annualRevenue"
-                      value={formData.annualRevenue}
-                      onChange={(e) =>
-                        handleInputChange("annualRevenue", e.target.value)
-                      }
-                      placeholder="Annual revenue"
+                    <Controller
+                      name="annualRevenue"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="annualRevenue"
+                          placeholder="Annual revenue (e.g. $500,000)"
+                          className={
+                            getErrorMessage("annualRevenue")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("annualRevenue") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("annualRevenue")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <Label htmlFor="investmentLimit">Investment Limit</Label>
-                    <Input
-                      id="investmentLimit"
-                      value={formData.investmentLimit}
-                      onChange={(e) =>
-                        handleInputChange("investmentLimit", e.target.value)
-                      }
-                      placeholder="Investment budget"
+                    <Controller
+                      name="investmentLimit"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="investmentLimit"
+                          placeholder="Investment budget (e.g. $50,000)"
+                          className={
+                            getErrorMessage("investmentLimit")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("investmentLimit") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("investmentLimit")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -467,52 +525,96 @@ export default function LeadForm({
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) =>
-                      handleInputChange("address", e.target.value)
-                    }
-                    placeholder="Street address"
-                    rows={2}
+                  <Controller
+                    name="address"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        id="address"
+                        placeholder="Street address"
+                        rows={2}
+                        className={
+                          getErrorMessage("address") ? "border-red-500" : ""
+                        }
+                      />
+                    )}
                   />
+                  {getErrorMessage("address") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("address")}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) =>
-                        handleInputChange("city", e.target.value)
-                      }
-                      placeholder="City"
+                    <Controller
+                      name="city"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="city"
+                          placeholder="City"
+                          className={
+                            getErrorMessage("city") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("city") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("city")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <Label htmlFor="state">State</Label>
-                    <Input
-                      id="state"
-                      value={formData.state}
-                      onChange={(e) =>
-                        handleInputChange("state", e.target.value)
-                      }
-                      placeholder="State"
+                    <Controller
+                      name="state"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="state"
+                          placeholder="State"
+                          className={
+                            getErrorMessage("state") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("state") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("state")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <Label htmlFor="pincode">Pincode</Label>
-                    <Input
-                      id="pincode"
-                      value={formData.pincode}
-                      onChange={(e) =>
-                        handleInputChange("pincode", e.target.value)
-                      }
-                      placeholder="ZIP/Postal code"
+                    <Controller
+                      name="pincode"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="pincode"
+                          placeholder="ZIP/Postal code"
+                          className={
+                            getErrorMessage("pincode") ? "border-red-500" : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("pincode") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("pincode")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -530,27 +632,53 @@ export default function LeadForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="lastContactDate">Last Contact Date</Label>
-                    <Input
-                      id="lastContactDate"
-                      type="date"
-                      value={formData.lastContactDate}
-                      onChange={(e) =>
-                        handleInputChange("lastContactDate", e.target.value)
-                      }
+                    <Controller
+                      name="lastContactDate"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="lastContactDate"
+                          type="date"
+                          className={
+                            getErrorMessage("lastContactDate")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("lastContactDate") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("lastContactDate")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="nextFollowUpDate">
                       Next Follow-up Date
                     </Label>
-                    <Input
-                      id="nextFollowUpDate"
-                      type="date"
-                      value={formData.nextFollowUpDate}
-                      onChange={(e) =>
-                        handleInputChange("nextFollowUpDate", e.target.value)
-                      }
+                    <Controller
+                      name="nextFollowUpDate"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="nextFollowUpDate"
+                          type="date"
+                          className={
+                            getErrorMessage("nextFollowUpDate")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("nextFollowUpDate") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("nextFollowUpDate")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -568,71 +696,99 @@ export default function LeadForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="linkedin">LinkedIn</Label>
-                    <Input
-                      id="linkedin"
-                      value={formData.socialMedia?.linkedin || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          socialMedia: {
-                            ...(prev.socialMedia || {}),
-                            linkedin: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="https://linkedin.com/in/username"
+                    <Controller
+                      name="socialMedia.linkedin"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="linkedin"
+                          placeholder="https://linkedin.com/in/username"
+                          className={
+                            getErrorMessage("socialMedia.linkedin")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("socialMedia.linkedin") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("socialMedia.linkedin")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="twitter">Twitter</Label>
-                    <Input
-                      id="twitter"
-                      value={formData.socialMedia?.twitter || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          socialMedia: {
-                            ...(prev.socialMedia || {}),
-                            twitter: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="https://twitter.com/username"
+                    <Controller
+                      name="socialMedia.twitter"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="twitter"
+                          placeholder="https://twitter.com/username"
+                          className={
+                            getErrorMessage("socialMedia.twitter")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("socialMedia.twitter") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("socialMedia.twitter")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="facebook">Facebook</Label>
-                    <Input
-                      id="facebook"
-                      value={formData.socialMedia?.facebook || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          socialMedia: {
-                            ...(prev.socialMedia || {}),
-                            facebook: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="https://facebook.com/username"
+                    <Controller
+                      name="socialMedia.facebook"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="facebook"
+                          placeholder="https://facebook.com/username"
+                          className={
+                            getErrorMessage("socialMedia.facebook")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("socialMedia.facebook") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("socialMedia.facebook")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="instagram">Instagram</Label>
-                    <Input
-                      id="instagram"
-                      value={formData.socialMedia?.instagram || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          socialMedia: {
-                            ...(prev.socialMedia || {}),
-                            instagram: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="https://instagram.com/username"
+                    <Controller
+                      name="socialMedia.instagram"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          id="instagram"
+                          placeholder="https://instagram.com/username"
+                          className={
+                            getErrorMessage("socialMedia.instagram")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                      )}
                     />
+                    {getErrorMessage("socialMedia.instagram") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("socialMedia.instagram")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -649,15 +805,26 @@ export default function LeadForm({
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleInputChange("description", e.target.value)
-                    }
-                    placeholder="Additional notes about the lead..."
-                    rows={4}
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        id="description"
+                        placeholder="Additional notes about the lead..."
+                        rows={4}
+                        className={
+                          getErrorMessage("description") ? "border-red-500" : ""
+                        }
+                      />
+                    )}
                   />
+                  {getErrorMessage("description") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("description")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -679,9 +846,9 @@ export default function LeadForm({
                         Add
                       </Button>
                     </div>
-                    {formData.tags.length > 0 && (
+                    {watchedTags && watchedTags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {formData.tags.map((tag) => (
+                        {watchedTags.map((tag) => (
                           <Badge
                             key={tag}
                             variant="secondary"
@@ -699,6 +866,11 @@ export default function LeadForm({
                         ))}
                       </div>
                     )}
+                    {getErrorMessage("tags") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getErrorMessage("tags")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -706,11 +878,15 @@ export default function LeadForm({
 
             {/* Dealer Information */}
             <div className="mt-6">
-              <DealerForm
-                initialData={formData.dealer || {}}
-                onChange={(dealerData) =>
-                  setFormData((prev) => ({ ...prev, dealer: dealerData }))
-                }
+              <Controller
+                name="dealer"
+                control={control}
+                render={({ field }) => (
+                  <DealerForm
+                    initialData={field.value || {}}
+                    onChange={field.onChange}
+                  />
+                )}
               />
             </div>
           </div>
@@ -724,126 +900,204 @@ export default function LeadForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      handleInputChange("status", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LEAD_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="status">Status *</Label>
+                  <Controller
+                    name="status"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          className={
+                            getErrorMessage("status") ? "border-red-500" : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LEAD_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {getErrorMessage("status") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("status")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) =>
-                      handleInputChange("priority", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRIORITIES.map((priority) => (
-                        <SelectItem key={priority} value={priority}>
-                          {priority}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="priority">Priority *</Label>
+                  <Controller
+                    name="priority"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          className={
+                            getErrorMessage("priority") ? "border-red-500" : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRIORITIES.map((priority) => (
+                            <SelectItem key={priority} value={priority}>
+                              {priority}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {getErrorMessage("priority") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("priority")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="source">Lead Source</Label>
-                  <Select
-                    value={formData.source}
-                    onValueChange={(value) =>
-                      handleInputChange("source", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LEAD_SOURCES.map((source) => (
-                        <SelectItem key={source} value={source}>
-                          {source}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="source"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          className={
+                            getErrorMessage("source") ? "border-red-500" : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LEAD_SOURCES.map((source) => (
+                            <SelectItem key={source} value={source}>
+                              {source}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {getErrorMessage("source") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("source")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="subStatus">Sub Status</Label>
-                  <Select
-                    value={formData.subStatus}
-                    onValueChange={(value) =>
-                      handleInputChange("subStatus", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sub status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUB_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="subStatus"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          className={
+                            getErrorMessage("subStatus") ? "border-red-500" : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select sub status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUB_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {getErrorMessage("subStatus") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("subStatus")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="convertedStatus">Converted Status</Label>
-                  <Select
-                    value={formData.convertedStatus}
-                    onValueChange={(value) =>
-                      handleInputChange("convertedStatus", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select converted status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONVERTED_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="convertedStatus"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          className={
+                            getErrorMessage("convertedStatus")
+                              ? "border-red-500"
+                              : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select converted status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONVERTED_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {getErrorMessage("convertedStatus") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("convertedStatus")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="leadScore">Lead Score (0-100)</Label>
-                  <Input
-                    id="leadScore"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formData.leadScore.toString()}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        leadScore: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    placeholder="Enter lead score"
+                  <Controller
+                    name="leadScore"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="leadScore"
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="Enter lead score"
+                        className={
+                          getErrorMessage("leadScore") ? "border-red-500" : ""
+                        }
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 0)
+                        }
+                      />
+                    )}
                   />
+                  {getErrorMessage("leadScore") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getErrorMessage("leadScore")}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -852,7 +1106,11 @@ export default function LeadForm({
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-2">
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading || Object.keys(errors).length > 0}
+                  >
                     {isLoading
                       ? "Saving..."
                       : mode === "create"
@@ -864,9 +1122,25 @@ export default function LeadForm({
                     variant="outline"
                     onClick={onCancel}
                     className="w-full"
+                    disabled={isLoading}
                   >
                     Cancel
                   </Button>
+                  {/* Form Status Indicator */}
+                  <div className="text-center text-xs text-gray-500 mt-2">
+                    {Object.keys(errors).length > 0 ? (
+                      <span className="text-red-500">
+                        {Object.keys(errors).length} error
+                        {Object.keys(errors).length > 1 ? "s" : ""} found
+                      </span>
+                    ) : isDirty ? (
+                      <span className="text-green-500">
+                        Form is valid and ready to submit
+                      </span>
+                    ) : (
+                      <span>Fill out the form to continue</span>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

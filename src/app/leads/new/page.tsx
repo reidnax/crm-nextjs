@@ -5,18 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import LeadForm from "@/components/forms/lead-form";
-
-// Import the type from the lead form
-type LeadFormData = Parameters<typeof LeadForm>[0]["onSubmit"] extends (
-  data: infer T
-) => void
-  ? T
-  : never;
+import { type LeadFormData } from "@/lib/validations/lead-validation";
 
 export default function NewLeadPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
 
   if (status === "loading") {
     return (
@@ -36,6 +31,8 @@ export default function NewLeadPage() {
 
   const handleSubmit = async (formData: LeadFormData) => {
     setIsLoading(true);
+    setServerErrors({}); // Clear previous server errors
+
     try {
       const response = await fetch("/api/leads", {
         method: "POST",
@@ -52,7 +49,14 @@ export default function NewLeadPage() {
         router.push(`/leads/${result.data.id}`);
       } else {
         console.error("Failed to create lead:", result.error);
-        toast.error(result.error || "Failed to create lead");
+
+        // Handle validation errors from server
+        if (result.validationErrors) {
+          setServerErrors(result.validationErrors);
+          toast.error("Please fix the validation errors and try again");
+        } else {
+          toast.error(result.error || "Failed to create lead");
+        }
       }
     } catch (error) {
       console.error("Error creating lead:", error);
@@ -72,6 +76,7 @@ export default function NewLeadPage() {
       onSubmit={handleSubmit}
       onCancel={handleCancel}
       isLoading={isLoading}
+      serverErrors={serverErrors}
     />
   );
 }

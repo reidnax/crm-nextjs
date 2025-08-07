@@ -36,6 +36,18 @@ import {
   PinIcon,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  getStatusColor,
+  getSubStatusColor,
+  getPriorityColor,
+} from "@/lib/utils";
+import {
+  StatusDropdown,
+  SubStatusDropdown,
+  PriorityDropdown,
+  LeadScoreInput,
+  AssigneeDropdown,
+} from "@/components/leads/lead-field-dropdowns";
 
 interface DealerData {
   evBusiness?: string;
@@ -162,6 +174,7 @@ export default function LeadDetailPage() {
 
   // Simple states
   const [isFavorited, setIsFavorited] = useState(false);
+  const [updatingFields, setUpdatingFields] = useState<string[]>([]);
 
   const fetchLeadDetails = useCallback(async () => {
     try {
@@ -198,6 +211,48 @@ export default function LeadDetailPage() {
       window.open(`mailto:${value}`);
     }
   };
+
+  // Function to handle lead field updates
+  const handleLeadUpdate = useCallback(
+    async (field: string, value: any) => {
+      if (!lead) return;
+
+      // Add field to updating state
+      setUpdatingFields((prev) => [...prev, field]);
+
+      try {
+        const response = await fetch(`/api/leads/${leadId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ [field]: value }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Update local state with the updated lead
+          setLead((prev) => (prev ? { ...prev, [field]: value } : null));
+
+          // If updating assignee, we need to update the assignee object too
+          if (field === "assign" && result.data.assignee) {
+            setLead((prev) =>
+              prev ? { ...prev, assignee: result.data.assignee } : null
+            );
+          }
+        } else {
+          console.error(`Failed to update ${field}:`, result.error);
+        }
+      } catch (error) {
+        console.error(`Error updating ${field}:`, error);
+      } finally {
+        // Remove field from updating state
+        setUpdatingFields((prev) => prev.filter((f) => f !== field));
+      }
+    },
+    [lead, leadId]
+  );
 
   useEffect(() => {
     if (session && leadId) {
@@ -241,32 +296,6 @@ export default function LeadDetailPage() {
       </div>
     );
   }
-
-  const getPriorityColor = (priority?: string) => {
-    switch (priority?.toLowerCase()) {
-      case "high":
-        return "bg-red-100 text-red-700";
-      case "medium":
-        return "bg-yellow-100 text-yellow-700";
-      case "low":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const getStatusColor = (status?: string) => {
-    switch (status?.toLowerCase()) {
-      case "qualified":
-        return "bg-green-100 text-green-700";
-      case "meeting":
-        return "bg-blue-100 text-blue-700";
-      case "converted":
-        return "bg-purple-100 text-purple-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -339,24 +368,43 @@ export default function LeadDetailPage() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                {lead.status && (
-                  <Badge className={getStatusColor(lead.status)}>
-                    {lead.status}
-                  </Badge>
-                )}
-                {lead.priority && (
-                  <Badge className={getPriorityColor(lead.priority)}>
-                    {lead.priority} Priority
-                  </Badge>
-                )}
-                {lead.subStatus && (
-                  <Badge variant="outline">{lead.subStatus}</Badge>
-                )}
+                <StatusDropdown
+                  currentStatus={lead.status}
+                  onStatusChange={(status) =>
+                    handleLeadUpdate("status", status)
+                  }
+                  isUpdating={updatingFields.includes("status")}
+                />
+
+                <SubStatusDropdown
+                  currentSubStatus={lead.subStatus}
+                  onSubStatusChange={(subStatus) =>
+                    handleLeadUpdate("subStatus", subStatus)
+                  }
+                  isUpdating={updatingFields.includes("subStatus")}
+                />
+
+                <PriorityDropdown
+                  currentPriority={lead.priority}
+                  onPriorityChange={(priority) =>
+                    handleLeadUpdate("priority", priority)
+                  }
+                  isUpdating={updatingFields.includes("priority")}
+                />
+
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-gray-500">Score:</span>
+                  <LeadScoreInput
+                    currentScore={lead.leadScore}
+                    onScoreChange={(score) =>
+                      handleLeadUpdate("leadScore", score)
+                    }
+                    isUpdating={updatingFields.includes("leadScore")}
+                  />
+                </div>
+
                 {lead.source && (
                   <Badge variant="secondary">Source: {lead.source}</Badge>
-                )}
-                {lead.leadScore && lead.leadScore > 0 && (
-                  <Badge variant="default">Score: {lead.leadScore}/100</Badge>
                 )}
               </div>
             </div>
@@ -787,23 +835,22 @@ export default function LeadDetailPage() {
                     </div>
                   </div>
 
-                  {lead.assignee && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Assigned To
-                      </label>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="bg-blue-500 text-white text-xs">
-                            {lead.assignee.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm text-gray-900">
-                          {lead.assignee.name}
-                        </span>
-                      </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">
+                      Assigned To
+                    </label>
+                    <div className="mt-1">
+                      <AssigneeDropdown
+                        currentAssigneeId={lead.assignee?.id}
+                        currentAssigneeName={lead.assignee?.name}
+                        onAssigneeChange={(assigneeId) =>
+                          handleLeadUpdate("assign", assigneeId)
+                        }
+                        isUpdating={updatingFields.includes("assign")}
+                        className="justify-start pl-0"
+                      />
                     </div>
-                  )}
+                  </div>
 
                   <div className="text-xs text-gray-500 space-y-1">
                     <div>
