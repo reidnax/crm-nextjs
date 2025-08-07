@@ -24,6 +24,7 @@ import {
   HardDrive,
   Zap,
   Eye,
+  Download,
 } from "lucide-react";
 
 interface PerformanceMetric {
@@ -122,6 +123,7 @@ export default function EnhancedPerformanceMonitor() {
   const [performanceData, setPerformanceData] =
     useState<EnhancedPerformanceData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const runEnhancedPerformanceTest = async () => {
@@ -194,6 +196,60 @@ export default function EnhancedPerformanceMonitor() {
     return <Minus className="h-4 w-4 text-gray-500" />;
   };
 
+  const exportToCSV = async () => {
+    if (!performanceData) return;
+    
+    setExporting(true);
+    try {
+      const response = await fetch("/api/debug/performance-enhanced/export");
+      
+      if (!response.ok) {
+        throw new Error("Failed to export CSV");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `performance-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export CSV");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportDetailedCSV = async () => {
+    if (!performanceData) return;
+    
+    setExporting(true);
+    try {
+      const response = await fetch("/api/debug/performance-enhanced/export-detailed");
+      
+      if (!response.ok) {
+        throw new Error("Failed to export detailed CSV");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `detailed-performance-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export detailed CSV");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -205,23 +261,65 @@ export default function EnhancedPerformanceMonitor() {
             Comprehensive performance analysis and bottleneck detection
           </p>
         </div>
-        <Button
-          onClick={runEnhancedPerformanceTest}
-          disabled={loading}
-          size="lg"
-        >
-          {loading ? (
+        <div className="flex gap-2">
+          {performanceData && (
             <>
-              <Clock className="h-4 w-4 mr-2 animate-spin" />
-              Running Deep Analysis...
-            </>
-          ) : (
-            <>
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Run Enhanced Diagnostics
+              <Button
+                onClick={exportToCSV}
+                disabled={exporting}
+                variant="outline"
+                size="lg"
+              >
+                {exporting ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={exportDetailedCSV}
+                disabled={exporting}
+                variant="outline"
+                size="lg"
+              >
+                {exporting ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Detailed CSV
+                  </>
+                )}
+              </Button>
             </>
           )}
-        </Button>
+          <Button
+            onClick={runEnhancedPerformanceTest}
+            disabled={loading}
+            size="lg"
+          >
+            {loading ? (
+              <>
+                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                Running Deep Analysis...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Run Enhanced Diagnostics
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {error && (
