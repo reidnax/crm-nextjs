@@ -7,7 +7,17 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx src/lib/permissions/seed-permissions.ts",
+    "db:setup": "prisma migrate deploy && npm run db:seed",
+    "db:status": "prisma migrate status",
+    "migrate": "node scripts/migrate.js",
+    "migrate:setup": "node scripts/migrate.js setup",
+    "migrate:deploy": "node scripts/migrate.js migrate",
+    "migrate:seed": "node scripts/migrate.js seed",
+    "migrate:status": "node scripts/migrate.js status",
+    "vercel:migrate": "node scripts/migrate.js setup"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -55,6 +65,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
     "tailwindcss": "^4",
+    "tsx": "^4.7.0",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5"
   }
