@@ -3,7 +3,6 @@
  * Returns detailed user information for permission checking
  */
 
-import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -14,11 +13,11 @@ export async function GET() {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user?.id) {
+    if (!session?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
-    const userId = parseInt(((session as any)?.user as any)?.id);
+    const userId = parseInt(session?.user?.id || "0");
 
     // Get user details with relationships
     const user = await prisma.user.findUnique({

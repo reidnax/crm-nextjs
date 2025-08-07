@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user?.id) {
+    if (!session?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
     // Check if user has admin role
-    const userRole = ((session as any)?.user as any)?.role;
+    const userRole = session?.user?.role;
     if (!isAdminRole(userRole)) {
       return errorResponse("Insufficient permissions", 403);
     }
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Get filters
-    const filters: any = {};
+    const filters: Record<string, string> = {};
 
     if (searchParams.get("action")) {
       filters.action = searchParams.get("action");

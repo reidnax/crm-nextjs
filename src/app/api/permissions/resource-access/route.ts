@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user?.id) {
+    if (!session?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
-    const userId = parseInt(((session as any)?.user as any)?.id);
+    const userId = parseInt(session?.user?.id || "0");
     const { searchParams } = new URL(request.url);
 
     const resourceType = searchParams.get("resourceType");

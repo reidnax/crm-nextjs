@@ -3,7 +3,6 @@
  * Returns permissions for the current authenticated user
  */
 
-import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PermissionManager } from "@/lib/permissions/core";
@@ -14,11 +13,11 @@ export async function GET() {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user?.id) {
+    if (!session?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
-    const userId = parseInt(((session as any)?.user as any)?.id);
+    const userId = parseInt(session?.user?.id || "0");
 
     // Get user permissions
     const permissions = await PermissionManager.getUserPermissions(userId);

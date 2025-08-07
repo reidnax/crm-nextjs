@@ -5,7 +5,7 @@
  * View and manage system audit logs
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -93,7 +93,7 @@ export default function AuditPage() {
   /**
    * Fetch audit logs from API
    */
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -120,12 +120,12 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination, filters]);
 
   /**
    * Fetch audit statistics
    */
-  const fetchAuditStats = async () => {
+  const fetchAuditStats = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/audit-stats");
 
@@ -136,7 +136,7 @@ export default function AuditPage() {
     } catch (error) {
       console.error("Error fetching audit stats:", error);
     }
-  };
+  }, []);
 
   /**
    * Export audit logs
@@ -199,11 +199,11 @@ export default function AuditPage() {
   // Fetch data on component mount and filter changes
   useEffect(() => {
     fetchAuditLogs();
-  }, [pagination.page, pagination.limit, filters]);
+  }, [fetchAuditLogs]);
 
   useEffect(() => {
     fetchAuditStats();
-  }, []);
+  }, [fetchAuditStats]);
 
   return (
     <RoleGate

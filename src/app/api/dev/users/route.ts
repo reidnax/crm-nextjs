@@ -8,13 +8,13 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user) {
+    if (!session?.user) {
       return errorResponse("Unauthorized", 401);
     }
 
     // Only Admin-Dev can access this endpoint (check both current role and real user role for impersonation)
-    const userRole = ((session as any)?.user as any)?.role;
-    const realUserRole = ((session as any)?.user as any)?.realUserRole;
+    const userRole = session?.user?.role;
+    const realUserRole = session?.user?.realUserRole;
     const isAdminDev = userRole === "Admin-Dev" || realUserRole === "Admin-Dev";
 
     if (!isAdminDev) {

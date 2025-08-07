@@ -88,7 +88,7 @@ export function PermissionProvider({
       console.error("Error fetching permissions:", error);
       return [];
     }
-  }, [realSession?.user, isDevMode]);
+  }, [realSession?.user]);
 
   /**
    * Fetch user details
@@ -111,7 +111,7 @@ export function PermissionProvider({
       console.error("Error fetching user details:", error);
       return null;
     }
-  }, [realSession?.user, isDevMode]);
+  }, [realSession?.user]);
 
   /**
    * Initialize permissions when session is available
@@ -304,7 +304,7 @@ export function PermissionProvider({
     } finally {
       setLoading(false);
     }
-  }, [realSession?.user, isDevMode, fetchUserDetails, fetchPermissions]);
+  }, [realSession?.user, fetchUserDetails, fetchPermissions]);
 
   const value: PermissionContextValue = {
     user,

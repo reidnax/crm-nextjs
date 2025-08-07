@@ -6,6 +6,7 @@ import React, {
   useState,
   ReactNode,
   useEffect,
+  useCallback,
 } from "react";
 import { useSession } from "next-auth/react";
 
@@ -61,7 +62,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
   const isImpersonated = (session?.user as any)?.isImpersonated;
   const impersonatedUserId = isImpersonated ? (session?.user as any)?.id : null;
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (canUseDevMode !== true) return;
 
     setLoading(true);
@@ -80,7 +81,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canUseDevMode]);
 
   const refreshUsers = async () => {
     await fetchUsers();
@@ -224,14 +225,22 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     };
 
     initializeDevMode();
-  }, [session, canUseDevMode, isInitialized]);
+  }, [
+    session,
+    canUseDevMode,
+    isInitialized,
+    availableUsers.length,
+    fetchUsers,
+    impersonatedUserId,
+    isImpersonated,
+  ]);
 
   // Fetch users when dev mode is enabled
   useEffect(() => {
     if (isDevMode && canUseDevMode === true && availableUsers.length === 0) {
       fetchUsers();
     }
-  }, [isDevMode, canUseDevMode]);
+  }, [isDevMode, canUseDevMode, availableUsers.length, fetchUsers]);
 
   const getEffectiveUser = (): DevUser | null => {
     if (isDevMode && selectedUser) {

@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import LeadForm from "@/components/forms/lead-form";
 
@@ -23,13 +23,7 @@ export default function EditLeadPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  useEffect(() => {
-    if (session && leadId) {
-      fetchLead();
-    }
-  }, [session, leadId]);
-
-  const fetchLead = async () => {
+  const fetchLead = useCallback(async () => {
     try {
       setIsLoadingData(true);
       const response = await fetch(`/api/leads/${leadId}`);
@@ -47,7 +41,13 @@ export default function EditLeadPage() {
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [leadId, router]);
+
+  useEffect(() => {
+    if (session && leadId) {
+      fetchLead();
+    }
+  }, [session, leadId, fetchLead]);
 
   if (status === "loading" || isLoadingData) {
     return (

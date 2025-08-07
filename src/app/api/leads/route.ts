@@ -38,9 +38,7 @@ export async function GET(request: NextRequest) {
 
     if (isVirtual) {
       console.log(
-        `Using impersonated user: ${userRole} (ID: ${userId}) for Admin-Dev ${
-          ((session as any)?.user as any)?.id
-        }`
+        `Using impersonated user: ${userRole} (ID: ${userId}) for Admin-Dev ${session?.user?.id}`
       );
     }
 

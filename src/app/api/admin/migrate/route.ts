@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     // Check authentication and authorization
     const session = await getServerSession(authOptions);
 
-    if (!(session as any)?.user) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user is admin
     const user = await prisma.user.findUnique({
-      where: { email: ((session as any)?.user as any)?.email! },
+      where: { email: session?.user?.email || "" },
       select: { role: true },
     });
 

@@ -88,15 +88,6 @@ export default function TeamPage() {
   // Current user's role for permission checks
   const [currentUserRole, setCurrentUserRole] = useState<string>("user");
 
-  useEffect(() => {
-    if (session) {
-      fetchTeamMembers();
-      // Get current user's role
-      const userRole = (session as any)?.user?.role || "user";
-      setCurrentUserRole(userRole);
-    }
-  }, [session]);
-
   const fetchTeamMembers = useCallback(async () => {
     if (!session) return;
 
@@ -116,6 +107,15 @@ export default function TeamPage() {
       setLoading(false);
     }
   }, [session]);
+
+  useEffect(() => {
+    if (session) {
+      fetchTeamMembers();
+      // Get current user's role
+      const userRole = session?.user?.role || "user";
+      setCurrentUserRole(userRole);
+    }
+  }, [session, fetchTeamMembers]);
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
