@@ -144,6 +144,7 @@ interface ConnectionPoolDiagnostics {
     executionTime: number;
     testsConducted: number;
     version: string;
+    cacheBuster: number;
   };
 }
 
@@ -182,7 +183,11 @@ export default function EnhancedPerformanceMonitor() {
     setError(null);
 
     try {
-      const response = await fetch("/api/debug/connection-pool-diagnostics");
+      // Add cache-busting parameter to ensure fresh results
+      const cacheBuster = Date.now();
+      const response = await fetch(
+        `/api/debug/connection-pool-diagnostics?cb=${cacheBuster}`
+      );
       const result = await response.json();
 
       if (result.success) {
@@ -769,35 +774,54 @@ export default function EnhancedPerformanceMonitor() {
                   </h5>
                   <div className="space-y-2 text-sm">
                     <div>
-                      <strong>Recommended DATABASE_URL:</strong>
+                      <strong>Correct Neon.tech Pooled CONNECTION_URL:</strong>
                       <code className="block bg-white p-2 mt-1 rounded text-xs font-mono overflow-x-auto">
-                        postgresql://user:pass@host/db?sslmode=require&channel_binding=require&pgbouncer=true&connection_limit=25&pool_timeout=15&connect_timeout=10&idle_timeout=300
+                        postgresql://user:pass@ep-endpoint-pooler.us-east-2.aws.neon.tech/dbname?sslmode=require&channel_binding=require
                       </code>
+                      <div className="mt-2 text-xs text-green-700">
+                        <strong>Key: </strong>Notice the{" "}
+                        <code className="bg-white px-1 rounded">-pooler</code>{" "}
+                        suffix in the endpoint - this enables Neon's 10,000
+                        connection pooling!
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       <div className="space-y-1">
-                        <strong>Production Settings:</strong>
+                        <strong>Neon.tech Settings:</strong>
                         <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
                           <li>
-                            <code>pgbouncer=true</code> - Enable pooling (10,000
-                            connections)
+                            <code>-pooler</code> endpoint - Enables 10,000
+                            concurrent connections
                           </li>
                           <li>
-                            <code>connection_limit=25</code> - Optimal for CRM
-                            workload
+                            <code>pool_mode=transaction</code> - Perfect for
+                            serverless (managed by Neon)
                           </li>
                           <li>
-                            <code>pool_timeout=15</code> - Fast failure
-                            detection
+                            <code>max_client_conn=10000</code> - Client
+                            connection limit (managed by Neon)
+                          </li>
+                          <li>
+                            <code>default_pool_size=0.9×max_connections</code> -
+                            Actual Postgres connections (managed by Neon)
                           </li>
                         </ul>
                       </div>
                       <div className="space-y-1">
                         <strong>Performance Targets:</strong>
                         <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
-                          <li>Connection time: &lt; 50ms</li>
-                          <li>Pool utilization: &lt; 70%</li>
-                          <li>Query throughput: &gt; 20 QPS</li>
+                          <li>
+                            Connection time: &lt; 50ms (pooled) vs 500-3000ms
+                            (direct)
+                          </li>
+                          <li>
+                            Pool utilization: &lt; 80% of default_pool_size
+                          </li>
+                          <li>Query throughput: 100+ QPS (with pooling)</li>
+                          <li>
+                            Max connections: 10,000 clients → ~810 actual
+                            Postgres connections
+                          </li>
                         </ul>
                       </div>
                     </div>
@@ -931,19 +955,41 @@ export default function EnhancedPerformanceMonitor() {
                       🚨 Critical Issues
                     </h5>
                     <div className="space-y-2 text-sm">
-                      {connectionPoolData.environment.connectionPooling ===
-                        "disabled" && (
+                      {connectionPoolData.environment.connectionPooling.includes(
+                        "disabled"
+                      ) && (
                         <div className="flex items-start gap-2">
                           <span className="text-red-600 font-bold">•</span>
                           <div>
-                            <strong>Connection Pooling Disabled</strong>
+                            <strong>
+                              {connectionPoolData.environment.connectionPooling.includes(
+                                "direct"
+                              )
+                                ? "Using Direct Neon Connection (Not Pooled)"
+                                : "Connection Pooling Disabled"}
+                            </strong>
                             <p className="text-red-700">
-                              Add{" "}
-                              <code className="bg-white px-1 rounded">
-                                pgbouncer=true
-                              </code>{" "}
-                              to your DATABASE_URL immediately. This is causing
-                              10x slower connections.
+                              {connectionPoolData.environment.connectionPooling.includes(
+                                "direct"
+                              ) ? (
+                                <>
+                                  Switch to Neon's pooled connection by changing
+                                  your endpoint from{" "}
+                                  <code className="bg-white px-1 rounded">
+                                    ep-name.neon.tech
+                                  </code>{" "}
+                                  to{" "}
+                                  <code className="bg-white px-1 rounded">
+                                    ep-name-pooler.neon.tech
+                                  </code>
+                                  . This will improve performance by 10-50x!
+                                </>
+                              ) : (
+                                <>
+                                  Enable connection pooling for your database
+                                  provider for significantly better performance.
+                                </>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -1000,22 +1046,42 @@ export default function EnhancedPerformanceMonitor() {
                         <strong>Immediate Actions:</strong>
                         <ol className="list-decimal list-inside space-y-1 text-xs text-gray-700 mt-1">
                           <li>
-                            Verify <code>pgbouncer=true</code> in DATABASE_URL
+                            <strong>Check your DATABASE_URL</strong> - ensure it
+                            has <code>-pooler</code> in the endpoint
                           </li>
                           <li>
-                            Set <code>connection_limit=25</code> for production
+                            <strong>Go to Neon dashboard</strong> → Click
+                            "Connect" → Toggle "Connection pooling" ON
                           </li>
-                          <li>Monitor connection pool utilization</li>
-                          <li>Test during peak traffic hours</li>
+                          <li>
+                            <strong>Copy the pooled connection string</strong>{" "}
+                            and update your Vercel environment
+                          </li>
+                          <li>
+                            <strong>Deploy and test</strong> - expect 10-50x
+                            performance improvement
+                          </li>
                         </ol>
                       </div>
                       <div>
                         <strong>Performance Monitoring:</strong>
                         <ol className="list-decimal list-inside space-y-1 text-xs text-gray-700 mt-1">
-                          <li>Run this test weekly</li>
-                          <li>Alert if avg connection time &gt; 100ms</li>
-                          <li>Monitor pool utilization &lt; 80%</li>
-                          <li>Track query throughput trends</li>
+                          <li>
+                            Run this test weekly to verify pooling performance
+                          </li>
+                          <li>
+                            Alert if avg connection time &gt; 100ms (indicates
+                            direct connection)
+                          </li>
+                          <li>Monitor Neon's dashboard for compute scaling</li>
+                          <li>
+                            Track query throughput &gt; 20 QPS (baseline for
+                            pooled connections)
+                          </li>
+                          <li>
+                            Verify endpoint always contains <code>-pooler</code>{" "}
+                            after deployments
+                          </li>
                         </ol>
                       </div>
                     </div>

@@ -47,6 +47,7 @@ interface ConnectionPoolDiagnostics {
     executionTime: number;
     testsConducted: number;
     version: string;
+    cacheBuster: number;
   };
 }
 
@@ -61,11 +62,33 @@ export async function GET() {
 
     console.log("🔍 Starting dedicated connection pool diagnostics...");
 
-    // Environment detection
+    // Add cache-busting timestamp to prevent Vercel caching
+    const cacheBuster = Date.now();
+
+    // Environment detection - Neon.tech specific
     const databaseUrl = process.env.DATABASE_URL || "";
     const urlParams = new URLSearchParams(databaseUrl.split("?")[1] || "");
-    const hasPgBouncer =
+
+    // Neon.tech uses -pooler endpoint for connection pooling, not pgbouncer parameter
+    const isNeonPooled =
+      databaseUrl.includes("-pooler.") && databaseUrl.includes("neon.tech");
+    const hasLegacyPgBouncer =
       urlParams.has("pgbouncer") || databaseUrl.includes("pgbouncer=true");
+
+    // Extract endpoint information for analysis
+    const endpointMatch = databaseUrl.match(/@([^/]+)/);
+    const endpoint = endpointMatch ? endpointMatch[1] : "";
+    const isNeonDatabase = endpoint.includes("neon.tech");
+    const isDirectConnection = isNeonDatabase && !endpoint.includes("-pooler.");
+
+    // Determine actual pooling status
+    const actualPoolingStatus = isNeonPooled
+      ? "enabled"
+      : isDirectConnection
+      ? "disabled (using direct connection)"
+      : hasLegacyPgBouncer
+      ? "enabled (legacy)"
+      : "disabled";
 
     const diagnostics: ConnectionPoolDiagnostics = {
       timestamp: new Date().toISOString(),
@@ -73,7 +96,7 @@ export async function GET() {
         node: process.version,
         region: process.env.VERCEL_REGION || "local",
         databaseProvider: "Neon.tech PostgreSQL",
-        connectionPooling: hasPgBouncer ? "enabled" : "disabled",
+        connectionPooling: actualPoolingStatus,
       },
       tests: {
         connectionPoolLoad: {
@@ -102,6 +125,7 @@ export async function GET() {
         executionTime: 0,
         testsConducted: 3,
         version: "1.0",
+        cacheBuster: cacheBuster,
       },
     };
 
@@ -274,16 +298,57 @@ export async function GET() {
     } else if (hasWarnings) {
       diagnostics.analysis.overallStatus = "warning";
       diagnostics.analysis.performanceScore = 60;
-    } else if (!hasPgBouncer) {
+    } else if (isDirectConnection) {
+      diagnostics.analysis.overallStatus = "critical";
+      diagnostics.analysis.performanceScore = 30;
+      diagnostics.analysis.primaryIssues.push(
+        "Using direct Neon connection instead of pooled connection"
+      );
+      diagnostics.analysis.recommendations.push(
+        "CRITICAL: Switch to Neon pooled connection by adding '-pooler' to your endpoint"
+      );
+      diagnostics.analysis.recommendations.push(
+        `Current: ${endpoint.split(".")[0]}.neon.tech`
+      );
+      diagnostics.analysis.recommendations.push(
+        `Required: ${endpoint.split(".")[0]}-pooler.neon.tech`
+      );
+    } else if (!isNeonPooled && !hasLegacyPgBouncer) {
       diagnostics.analysis.overallStatus = "warning";
       diagnostics.analysis.performanceScore = 70;
-      diagnostics.analysis.primaryIssues.push("Connection pooling disabled");
+      diagnostics.analysis.primaryIssues.push(
+        "Connection pooling not detected"
+      );
       diagnostics.analysis.recommendations.push(
-        "Add pgbouncer=true to DATABASE_URL for better performance"
+        "Enable connection pooling for better performance"
+      );
+    } else if (hasLegacyPgBouncer && !isNeonPooled) {
+      diagnostics.analysis.overallStatus = "warning";
+      diagnostics.analysis.performanceScore = 75;
+      diagnostics.analysis.primaryIssues.push(
+        "Using legacy pgbouncer parameter instead of Neon pooling"
+      );
+      diagnostics.analysis.recommendations.push(
+        "Switch to Neon's native pooling by using -pooler endpoint"
       );
     } else {
       diagnostics.analysis.overallStatus = "excellent";
       diagnostics.analysis.performanceScore = 95;
+    }
+
+    // Add performance-based recommendations
+    const loadTestDetails = diagnostics.tests.connectionPoolLoad.details;
+    if (loadTestDetails) {
+      if (loadTestDetails.avgConnectionTime > 500 && isDirectConnection) {
+        diagnostics.analysis.recommendations.push(
+          "High connection latency detected - this confirms you need to switch to pooled connection"
+        );
+      }
+      if (loadTestDetails.recommendedLimit > 10) {
+        diagnostics.analysis.recommendations.push(
+          `Consider optimizing for ${loadTestDetails.recommendedLimit} concurrent connections`
+        );
+      }
     }
 
     diagnostics.meta.executionTime = Date.now() - startTime;
@@ -292,7 +357,19 @@ export async function GET() {
       `🎉 Connection pool diagnostics completed in ${diagnostics.meta.executionTime}ms`
     );
 
-    return successResponse(diagnostics);
+    // Create response with cache-busting headers
+    const response = successResponse(diagnostics);
+
+    // Add cache-busting headers to prevent Vercel caching
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("X-Cache-Buster", cacheBuster.toString());
+
+    return response;
   } catch (error) {
     console.error("❌ Connection pool diagnostics error:", error);
     return errorResponse(
