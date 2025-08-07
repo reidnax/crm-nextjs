@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useState, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -50,6 +50,47 @@ interface LeadsTableProps {
 
 // Memoized table component - only re-renders when leads or loading actually change
 const LeadsTable = memo(({ leads, loading }: LeadsTableProps) => {
+  const [tableHeight, setTableHeight] = useState<number>(400);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Calculate available height for the table
+  useEffect(() => {
+    const calculateTableHeight = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        const rect = container.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const containerTop = rect.top;
+
+        // Calculate available height: viewport height - container top - padding
+        const availableHeight = viewportHeight - containerTop - 150; // 100px for padding and other elements
+
+        // Set minimum and maximum heights
+        const minHeight = 300;
+        const maxHeight = 600;
+        const calculatedHeight = Math.max(
+          minHeight,
+          Math.min(maxHeight, availableHeight)
+        );
+
+        setTableHeight(calculatedHeight);
+      }
+    };
+
+    // Calculate on mount and resize
+    calculateTableHeight();
+    window.addEventListener("resize", calculateTableHeight);
+
+    // Recalculate when leads change (might affect layout)
+    if (leads.length > 0) {
+      calculateTableHeight();
+    }
+
+    return () => {
+      window.removeEventListener("resize", calculateTableHeight);
+    };
+  }, [leads.length]);
+
   if (loading && leads.length === 0) {
     return (
       <div className="p-8 text-center">
@@ -87,12 +128,15 @@ const LeadsTable = memo(({ leads, loading }: LeadsTableProps) => {
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden md:block">
-        <div className="relative overflow-x-auto">
+      <div className="hidden md:block" ref={containerRef}>
+        <div
+          className="relative overflow-x-auto overflow-y-auto"
+          style={{ height: `${tableHeight}px` }}
+        >
           <Table className="relative">
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-white z-20">
               <TableRow>
-                <TableHead className="sticky left-0 bg-white z-10 border-r shadow-sm min-w-[200px]">
+                <TableHead className="sticky left-0 bg-white z-30 border-r shadow-sm min-w-[200px]">
                   Name
                 </TableHead>
                 <TableHead className="min-w-[150px]">Company</TableHead>
@@ -119,7 +163,7 @@ const LeadsTable = memo(({ leads, loading }: LeadsTableProps) => {
                 <TableHead className="hidden lg:table-cell min-w-[180px]">
                   Email
                 </TableHead>
-                <TableHead className="sticky right-0 bg-white z-10 border-l shadow-sm min-w-[140px]">
+                <TableHead className="sticky right-0 bg-white z-30 border-l shadow-sm min-w-[140px]">
                   Actions
                 </TableHead>
               </TableRow>
