@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import LeadForm from "@/components/forms/lead-form";
 
 // Import the type from the lead form
@@ -47,14 +48,15 @@ export default function NewLeadPage() {
       const result = await response.json();
 
       if (result.success) {
+        toast.success("Lead created successfully!");
         router.push(`/leads/${result.data.id}`);
       } else {
         console.error("Failed to create lead:", result.error);
-        // TODO: Show error toast
+        toast.error(result.error || "Failed to create lead");
       }
     } catch (error) {
       console.error("Error creating lead:", error);
-      // TODO: Show error toast
+      toast.error("An unexpected error occurred while creating the lead");
     } finally {
       setIsLoading(false);
     }

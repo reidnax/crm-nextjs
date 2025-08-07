@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { AuditService } from "@/lib/permissions/audit-service";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!(session as any)?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
     // Check if user has admin role
-    const userRole = (session.user as any).role;
+    const userRole = ((session as any)?.user as any)?.role;
     if (!isAdminRole(userRole)) {
       return errorResponse("Insufficient permissions", 403);
     }

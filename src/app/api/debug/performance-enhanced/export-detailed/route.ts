@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { errorResponse } from "@/lib/api-response";
 import { NextRequest } from "next/server";
 
 interface PerformanceMetric {
@@ -101,7 +101,11 @@ function escapeCSV(value: any): string {
     return "";
   }
   const stringValue = String(value);
-  if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
+  if (
+    stringValue.includes(",") ||
+    stringValue.includes('"') ||
+    stringValue.includes("\n")
+  ) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
   return stringValue;
@@ -134,7 +138,12 @@ function generateSummarySheet(data: EnhancedPerformanceData): string {
     ["System Resources"],
     ["Memory Used (MB)", data.system.memory.heap.used],
     ["Memory Total (MB)", data.system.memory.heap.total],
-    ["Memory Usage %", Math.round((data.system.memory.heap.used / data.system.memory.heap.total) * 100)],
+    [
+      "Memory Usage %",
+      Math.round(
+        (data.system.memory.heap.used / data.system.memory.heap.total) * 100
+      ),
+    ],
     ["CPU User Time (ms)", data.system.cpu.userCPUTime],
     ["CPU System Time (ms)", data.system.cpu.systemCPUTime],
     ["Event Loop Lag (ms)", data.system.eventLoop.lag.toFixed(2)],
@@ -152,10 +161,12 @@ function generateSummarySheet(data: EnhancedPerformanceData): string {
     ["Recommendations"],
     ["Immediate Actions", data.recommendations.immediate.join("; ")],
     ["Short Term", data.recommendations.shortTerm.join("; ")],
-    ["Long Term", data.recommendations.longTerm.join("; ")]
+    ["Long Term", data.recommendations.longTerm.join("; ")],
   ];
 
-  return rows.map(row => row.map(cell => escapeCSV(cell)).join(",")).join("\n");
+  return rows
+    .map((row) => row.map((cell) => escapeCSV(cell)).join(","))
+    .join("\n");
 }
 
 // Generate database performance sheet
@@ -169,20 +180,20 @@ function generateDatabaseSheet(data: EnhancedPerformanceData): string {
       data.database.connectionPool.name,
       data.database.connectionPool.duration,
       data.database.connectionPool.status,
-      data.database.connectionPool.error || ""
+      data.database.connectionPool.error || "",
     ],
     [""],
     ["Simple Queries"],
-    ["Name", "Duration (ms)", "Status", "Count", "Details"]
+    ["Name", "Duration (ms)", "Status", "Count", "Details"],
   ];
 
-  data.database.simpleQueries.forEach(query => {
+  data.database.simpleQueries.forEach((query) => {
     rows.push([
       query.name,
       query.duration,
       query.status,
       query.details?.count || "",
-      JSON.stringify(query.details || {})
+      JSON.stringify(query.details || {}),
     ]);
   });
 
@@ -190,12 +201,12 @@ function generateDatabaseSheet(data: EnhancedPerformanceData): string {
   rows.push(["Complex Queries"]);
   rows.push(["Name", "Duration (ms)", "Status", "Details"]);
 
-  data.database.complexQueries.forEach(query => {
+  data.database.complexQueries.forEach((query) => {
     rows.push([
       query.name,
       query.duration,
       query.status,
-      JSON.stringify(query.details || {})
+      JSON.stringify(query.details || {}),
     ]);
   });
 
@@ -203,16 +214,18 @@ function generateDatabaseSheet(data: EnhancedPerformanceData): string {
   rows.push(["Aggregate Queries"]);
   rows.push(["Name", "Duration (ms)", "Status", "Details"]);
 
-  data.database.aggregateQueries.forEach(query => {
+  data.database.aggregateQueries.forEach((query) => {
     rows.push([
       query.name,
       query.duration,
       query.status,
-      JSON.stringify(query.details || {})
+      JSON.stringify(query.details || {}),
     ]);
   });
 
-  return rows.map(row => row.map(cell => escapeCSV(cell)).join(",")).join("\n");
+  return rows
+    .map((row) => row.map((cell) => escapeCSV(cell)).join(","))
+    .join("\n");
 }
 
 // Generate system performance sheet
@@ -222,7 +235,13 @@ function generateSystemSheet(data: EnhancedPerformanceData): string {
     [""],
     ["Memory Usage"],
     ["Metric", "Value (MB)", "Percentage"],
-    ["Heap Used", data.system.memory.heap.used, Math.round((data.system.memory.heap.used / data.system.memory.heap.total) * 100)],
+    [
+      "Heap Used",
+      data.system.memory.heap.used,
+      Math.round(
+        (data.system.memory.heap.used / data.system.memory.heap.total) * 100
+      ),
+    ],
     ["Heap Total", data.system.memory.heap.total, ""],
     ["Heap Limit", data.system.memory.heap.limit, ""],
     ["External Memory", data.system.memory.external, ""],
@@ -243,10 +262,12 @@ function generateSystemSheet(data: EnhancedPerformanceData): string {
     ["Metric", "Value"],
     ["Collections", data.system.gc.collections],
     ["Total Time (ms)", data.system.gc.totalTime],
-    ["Average Time (ms)", data.system.gc.avgTime]
+    ["Average Time (ms)", data.system.gc.avgTime],
   ];
 
-  return rows.map(row => row.map(cell => escapeCSV(cell)).join(",")).join("\n");
+  return rows
+    .map((row) => row.map((cell) => escapeCSV(cell)).join(","))
+    .join("\n");
 }
 
 // Generate network performance sheet
@@ -260,7 +281,7 @@ function generateNetworkSheet(data: EnhancedPerformanceData): string {
       data.network.dns.name,
       data.network.dns.duration,
       data.network.dns.status,
-      data.network.dns.error || ""
+      data.network.dns.error || "",
     ],
     [""],
     ["Latency Measurements"],
@@ -270,19 +291,21 @@ function generateNetworkSheet(data: EnhancedPerformanceData): string {
     ["External APIs", data.network.latency.external.toFixed(1)],
     [""],
     ["External API Tests"],
-    ["Name", "Duration (ms)", "Status", "Details"]
+    ["Name", "Duration (ms)", "Status", "Details"],
   ];
 
-  data.network.externalAPIs.forEach(api => {
+  data.network.externalAPIs.forEach((api) => {
     rows.push([
       api.name,
       api.duration,
       api.status,
-      JSON.stringify(api.details || {})
+      JSON.stringify(api.details || {}),
     ]);
   });
 
-  return rows.map(row => row.map(cell => escapeCSV(cell)).join(",")).join("\n");
+  return rows
+    .map((row) => row.map((cell) => escapeCSV(cell)).join(","))
+    .join("\n");
 }
 
 // Generate permissions performance sheet
@@ -290,20 +313,22 @@ function generatePermissionsSheet(data: EnhancedPerformanceData): string {
   const rows = [
     ["Permission System Performance"],
     [""],
-    ["Permission", "Duration (ms)", "Status", "Has Permission", "Details"]
+    ["Permission", "Duration (ms)", "Status", "Has Permission", "Details"],
   ];
 
-  data.permissions.forEach(permission => {
+  data.permissions.forEach((permission) => {
     rows.push([
       permission.name,
       permission.duration.toFixed(1),
       permission.status,
       permission.details?.hasPermission ? "Yes" : "No",
-      JSON.stringify(permission.details || {})
+      JSON.stringify(permission.details || {}),
     ]);
   });
 
-  return rows.map(row => row.map(cell => escapeCSV(cell)).join(",")).join("\n");
+  return rows
+    .map((row) => row.map((cell) => escapeCSV(cell)).join(","))
+    .join("\n");
 }
 
 // GET /api/debug/performance-enhanced/export-detailed - Export detailed performance diagnostics as CSV
@@ -343,7 +368,7 @@ export async function POST(request: NextRequest) {
       networkSheet,
       "",
       "=== PERMISSIONS PERFORMANCE ===",
-      permissionsSheet
+      permissionsSheet,
     ].join("\n");
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -360,4 +385,4 @@ export async function POST(request: NextRequest) {
     console.error("Detailed CSV export error:", error);
     return errorResponse("Failed to export detailed CSV");
   }
-} 
+}

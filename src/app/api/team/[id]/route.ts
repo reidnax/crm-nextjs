@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { isAdmin, isAdminRole } from "@/lib/permissions";
+
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
 import bcrypt from "bcryptjs";
@@ -148,7 +148,7 @@ export async function GET(
       return errorResponse("Invalid user ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId: currentUserId } = await getEffectiveUserForPermissions(
       session
     );
@@ -226,7 +226,7 @@ export async function PUT(
       return errorResponse("Invalid user ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId: currentUserId } = await getEffectiveUserForPermissions(
       session
     );
@@ -380,7 +380,7 @@ export async function DELETE(
       return errorResponse("Invalid user ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId: currentUserId } = await getEffectiveUserForPermissions(
       session
     );

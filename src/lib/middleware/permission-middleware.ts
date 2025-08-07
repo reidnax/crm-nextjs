@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PermissionManager, PermissionContext } from "../permissions/core";
 import { PermissionKey } from "../permissions/permission-matrix";
@@ -31,14 +31,14 @@ async function getUserFromSession(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!(session as any)?.user?.id) {
       return null;
     }
 
     return {
-      id: parseInt(session.user.id),
-      role: (session.user as any).role,
-      email: session.user.email,
+      id: parseInt(((session as any)?.user as any)?.id),
+      role: ((session as any)?.user as any)?.role,
+      email: ((session as any)?.user as any)?.email,
     };
   } catch (error) {
     console.error("Error getting user from session:", error);
@@ -136,7 +136,7 @@ export function withPermissions(options: PermissionMiddlewareOptions) {
       }
     };
 
-    return wrappedHandler as T;
+    return wrappedHandler as unknown as T;
   };
 }
 
@@ -222,7 +222,7 @@ export function withResourceOwnership(options: ResourceMiddlewareOptions) {
       }
     };
 
-    return wrappedHandler as T;
+    return wrappedHandler as unknown as T;
   };
 }
 
@@ -284,7 +284,7 @@ export function withRoles(allowedRoles: string[], auditAction?: string) {
       }
     };
 
-    return wrappedHandler as T;
+    return wrappedHandler as unknown as T;
   };
 }
 
@@ -326,7 +326,7 @@ export function withAuth(auditAction?: string) {
       }
     };
 
-    return wrappedHandler as T;
+    return wrappedHandler as unknown as T;
   };
 }
 

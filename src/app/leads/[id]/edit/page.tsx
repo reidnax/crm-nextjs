@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import LeadForm from "@/components/forms/lead-form";
 
 // Import the type from the lead form
@@ -72,7 +73,7 @@ export default function EditLeadPage() {
             Lead Not Found
           </h1>
           <p className="text-gray-600 mb-4">
-            The lead you're trying to edit doesn't exist.
+            The lead you&apos;re trying to edit doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -93,14 +94,15 @@ export default function EditLeadPage() {
       const result = await response.json();
 
       if (result.success) {
+        toast.success("Lead updated successfully!");
         router.push(`/leads/${leadId}`);
       } else {
         console.error("Failed to update lead:", result.error);
-        // TODO: Show error toast
+        toast.error(result.error || "Failed to update lead");
       }
     } catch (error) {
       console.error("Error updating lead:", error);
-      // TODO: Show error toast
+      toast.error("An unexpected error occurred while updating the lead");
     } finally {
       setIsLoading(false);
     }

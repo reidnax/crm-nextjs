@@ -781,7 +781,7 @@ export default function EnhancedPerformanceMonitor() {
                       <div className="mt-2 text-xs text-green-700">
                         <strong>Key: </strong>Notice the{" "}
                         <code className="bg-white px-1 rounded">-pooler</code>{" "}
-                        suffix in the endpoint - this enables Neon's 10,000
+                        suffix in the endpoint - this enables Neon&apos;s 10,000
                         connection pooling!
                       </div>
                     </div>
@@ -973,8 +973,8 @@ export default function EnhancedPerformanceMonitor() {
                                 "direct"
                               ) ? (
                                 <>
-                                  Switch to Neon's pooled connection by changing
-                                  your endpoint from{" "}
+                                  Switch to Neon&apos;s pooled connection by
+                                  changing your endpoint from{" "}
                                   <code className="bg-white px-1 rounded">
                                     ep-name.neon.tech
                                   </code>{" "}
@@ -1051,7 +1051,8 @@ export default function EnhancedPerformanceMonitor() {
                           </li>
                           <li>
                             <strong>Go to Neon dashboard</strong> → Click
-                            "Connect" → Toggle "Connection pooling" ON
+                            &quot;Connect&quot; → Toggle &quot;Connection
+                            pooling&quot; ON
                           </li>
                           <li>
                             <strong>Copy the pooled connection string</strong>{" "}
@@ -1073,7 +1074,9 @@ export default function EnhancedPerformanceMonitor() {
                             Alert if avg connection time &gt; 100ms (indicates
                             direct connection)
                           </li>
-                          <li>Monitor Neon's dashboard for compute scaling</li>
+                          <li>
+                            Monitor Neon&apos;s dashboard for compute scaling
+                          </li>
                           <li>
                             Track query throughput &gt; 20 QPS (baseline for
                             pooled connections)

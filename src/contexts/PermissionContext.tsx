@@ -62,7 +62,7 @@ export function PermissionProvider({
   children: React.ReactNode;
 }) {
   const { data: realSession, status } = useSession();
-  const { isDevMode, virtualUser } = useDevMode();
+  const { isDevMode } = useDevMode();
   const [user, setUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<PermissionKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +72,7 @@ export function PermissionProvider({
    */
   const fetchPermissions = useCallback(async (): Promise<PermissionKey[]> => {
     try {
-      // Handle virtual users - use role-based permissions
-      if (isDevMode && virtualUser) {
-        const { getRolePermissions } = await import(
-          "@/lib/permissions/permission-matrix"
-        );
-        return getRolePermissions(virtualUser.role);
-      }
-
-      // Real users - fetch from API
+      // Fetch user permissions from API
       if (!realSession?.user) {
         return [];
       }
@@ -96,23 +88,14 @@ export function PermissionProvider({
       console.error("Error fetching permissions:", error);
       return [];
     }
-  }, [realSession?.user, isDevMode, virtualUser]);
+  }, [realSession?.user, isDevMode]);
 
   /**
    * Fetch user details
    */
   const fetchUserDetails = useCallback(async (): Promise<User | null> => {
     try {
-      // Handle virtual users
-      if (isDevMode && virtualUser) {
-        return {
-          id: virtualUser.id,
-          role: virtualUser.role,
-          department: virtualUser.department,
-        };
-      }
-
-      // Real users - fetch from API
+      // Fetch user details from API
       if (!realSession?.user) {
         return null;
       }
@@ -128,7 +111,7 @@ export function PermissionProvider({
       console.error("Error fetching user details:", error);
       return null;
     }
-  }, [realSession?.user, isDevMode, virtualUser]);
+  }, [realSession?.user, isDevMode]);
 
   /**
    * Initialize permissions when session is available
@@ -141,8 +124,8 @@ export function PermissionProvider({
         return;
       }
 
-      // For virtual users, we don't need a real session
-      if (!realSession?.user && !(isDevMode && virtualUser)) {
+      // For impersonated users, we don't need a real session
+      if (!realSession?.user) {
         setUser(null);
         setPermissions([]);
         setLoading(false);
@@ -167,16 +150,7 @@ export function PermissionProvider({
     };
 
     initializePermissions();
-  }, [
-    realSession,
-    status,
-    isDevMode,
-    virtualUser,
-    fetchUserDetails,
-    fetchPermissions,
-  ]);
-
-  // Note: Virtual user handling is now done directly in fetchPermissions and fetchUserDetails
+  }, [realSession, status, isDevMode, fetchUserDetails, fetchPermissions]);
 
   /**
    * Check if user has a specific permission
@@ -311,8 +285,8 @@ export function PermissionProvider({
    * Refresh permissions (useful after role changes)
    */
   const refreshPermissions = useCallback(async () => {
-    // For virtual users, we don't need a real session
-    if (!realSession?.user && !(isDevMode && virtualUser)) {
+    // For impersonated users, we don't need a real session
+    if (!realSession?.user) {
       return;
     }
 
@@ -330,13 +304,7 @@ export function PermissionProvider({
     } finally {
       setLoading(false);
     }
-  }, [
-    realSession?.user,
-    isDevMode,
-    virtualUser,
-    fetchUserDetails,
-    fetchPermissions,
-  ]);
+  }, [realSession?.user, isDevMode, fetchUserDetails, fetchPermissions]);
 
   const value: PermissionContextValue = {
     user,

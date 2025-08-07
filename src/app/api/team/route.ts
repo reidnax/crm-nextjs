@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { isAdmin } from "@/lib/permissions";
+
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
 import bcrypt from "bcryptjs";
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId: currentUserId } = await getEffectiveUserForPermissions(
       session
     );
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId: currentUserId } = await getEffectiveUserForPermissions(
       session
     );
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       name,
       phone,
       role = "user",
-      department,
+
       jobTitle,
       bio,
       active = true,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { seedPermissionSystem } from "@/lib/permissions/seed-permissions";
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     // Check authentication and authorization
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!(session as any)?.user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user is admin
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
+      where: { email: ((session as any)?.user as any)?.email! },
       select: { role: true },
     });
 

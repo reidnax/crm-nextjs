@@ -1,24 +1,15 @@
 "use client";
 
 import React from "react";
-import { useDevMode, AVAILABLE_ROLES } from "@/contexts/DevModeContext";
+import { useDevMode } from "@/contexts/DevModeContext";
 import { useVirtualSession } from "@/hooks/useVirtualSession";
-import { VIRTUAL_TEST_USERS } from "@/lib/virtual-users";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Settings,
   User,
-  Shield,
   Eye,
   EyeOff,
   Crown,
@@ -41,25 +32,18 @@ const ROLE_COLORS = {
 };
 
 export function RoleSwitcher() {
-  const virtualSession = useVirtualSession();
-  const {
-    isDevMode,
-    simulatedRole,
-    virtualUser,
-    setSimulatedRole,
-    toggleDevMode,
-    canUseDevMode,
-  } = useDevMode();
+  const sessionInfo = useVirtualSession();
+  const { isDevMode, toggleDevMode, canUseDevMode } = useDevMode();
 
   if (!canUseDevMode) {
     return null;
   }
 
-  const currentRole = (virtualSession.data?.user as { role?: string })?.role;
+  const currentRole = (sessionInfo.data?.user as { role?: string })?.role;
   const IconComponent =
     ROLE_ICONS[currentRole as keyof typeof ROLE_ICONS] || User;
 
-  const isVirtual = virtualSession.isVirtual;
+  const isImpersonated = sessionInfo.isImpersonated;
 
   return (
     <Card className="fixed bottom-4 left-4 w-80 shadow-lg border-2 border-blue-200 bg-blue-50/90 backdrop-blur-sm z-50">
@@ -96,92 +80,36 @@ export function RoleSwitcher() {
           >
             <IconComponent className="h-3 w-3 mr-1" />
             {currentRole}
-            {isVirtual && <span className="text-xs ml-1">(Virtual)</span>}
+            {isImpersonated && (
+              <span className="text-xs ml-1">(Impersonated)</span>
+            )}
           </Badge>
         </div>
-
-        {/* Virtual User Info */}
-        {isVirtual && virtualUser && (
-          <div className="text-xs bg-blue-100 p-2 rounded border">
-            <div>
-              <strong>Virtual User:</strong> {virtualUser.name}
-            </div>
-            <div>
-              <strong>ID:</strong> {virtualUser.id}
-            </div>
-            <div>
-              <strong>Department:</strong> {virtualUser.department || "None"}
-            </div>
-          </div>
-        )}
-
-        {/* Role Selector (only visible in dev mode) */}
-        {isDevMode && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Virtual User Role:
-            </label>
-            <Select
-              value={simulatedRole || "reset"}
-              onValueChange={(value) =>
-                setSimulatedRole(value === "reset" ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select virtual user role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="reset">Use Real User (Admin-Dev)</SelectItem>
-                {AVAILABLE_ROLES.map((role) => {
-                  const RoleIcon = ROLE_ICONS[role as keyof typeof ROLE_ICONS];
-                  return (
-                    <SelectItem key={role} value={role}>
-                      <div className="flex items-center gap-2">
-                        <RoleIcon className="h-4 w-4" />
-                        {role}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Quick Reset Button */}
-        {isDevMode && simulatedRole && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSimulatedRole(null)}
-            className="w-full"
-          >
-            Reset to Admin-Dev
-          </Button>
-        )}
 
         {/* Info Text */}
         <div className="text-xs text-gray-600 bg-white/50 p-2 rounded border">
           {isDevMode ? (
             <>
-              <strong>Virtual User Mode Active</strong>
+              <strong>User Impersonation Mode Active</strong>
               <br />
-              {isVirtual ? (
+              {isImpersonated ? (
                 <>
-                  Experiencing authentic {currentRole} permissions and data
-                  filtering.
+                  Currently experiencing {currentRole} permissions and data
+                  filtering as an impersonated user.
                 </>
               ) : (
                 <>
-                  Select a virtual user role to test authentic role experience.
+                  Use the sidebar user switcher to impersonate different users.
                 </>
               )}
             </>
           ) : (
             <>
-              Toggle Dev Mode to test different role permissions.
+              Toggle Dev Mode to test different user roles and permissions.
               <br />
-              <strong>Virtual users provide authentic database testing.</strong>
+              <strong>
+                User impersonation provides authentic database testing.
+              </strong>
             </>
           )}
         </div>

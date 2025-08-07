@@ -123,14 +123,6 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.ok) {
-        console.log(
-          `${
-            user
-              ? `Impersonating user ${user.name} (${user.email})`
-              : "Stopped impersonation"
-          }`
-        );
-
         // Update the selected user immediately in client state
         setSelectedUser(user);
 

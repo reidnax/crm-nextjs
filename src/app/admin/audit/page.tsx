@@ -31,17 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PermissionGate } from "@/components/auth/PermissionGate";
 import { RoleGate } from "@/components/auth/RoleGate";
-import {
-  Calendar,
-  Filter,
-  Download,
-  Search,
-  User,
-  Shield,
-  Activity,
-} from "lucide-react";
+import { Filter, Download, Search, User, Shield, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 interface AuditLog {
@@ -227,7 +218,7 @@ export default function AuditPage() {
                   Access Denied
                 </h3>
                 <p className="text-gray-600">
-                  You don't have permission to view audit logs.
+                  You don&apos;t have permission to view audit logs.
                 </p>
               </div>
             </CardContent>

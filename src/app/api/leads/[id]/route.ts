@@ -86,7 +86,7 @@ export async function GET(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can read this lead
@@ -162,7 +162,7 @@ export async function PUT(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can update this lead
@@ -225,7 +225,7 @@ export async function DELETE(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can delete this lead

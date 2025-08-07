@@ -218,7 +218,6 @@ export function usePagination(initialPageSize: number = 10) {
   const [pageSize, setPageSize] = useState(initialPageSize);
 
   const handlePageChange = useCallback((page: number) => {
-    console.log("Page change requested:", page);
     setCurrentPage((prevPage) => {
       // Only update if page actually changed
       if (prevPage === page) return prevPage;
@@ -227,7 +226,6 @@ export function usePagination(initialPageSize: number = 10) {
   }, []);
 
   const handlePageSizeChange = useCallback((newPageSize: number) => {
-    console.log("Page size change requested:", newPageSize);
     setPageSize((prevSize) => {
       // Only update if size actually changed
       if (prevSize === newPageSize) return prevSize;
@@ -237,7 +235,6 @@ export function usePagination(initialPageSize: number = 10) {
   }, []);
 
   const resetPagination = useCallback(() => {
-    console.log("Pagination reset");
     setCurrentPage((prevPage) => {
       // Only reset if not already on page 1
       if (prevPage === 1) return prevPage;

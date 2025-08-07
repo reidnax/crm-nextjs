@@ -83,7 +83,7 @@ export async function POST(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can access this lead (need read access to the lead)
@@ -165,7 +165,7 @@ export async function GET(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can access this lead (need read access to the lead)
@@ -209,7 +209,7 @@ export async function GET(
     }
 
     // Apply note filtering based on permissions
-    let noteFilter: any = { leadId };
+    const noteFilter: any = { leadId };
 
     if (!hasReadAllNotes) {
       const permissionFilters = [];

@@ -398,7 +398,6 @@ export default function LeadsFilters({
           <Tabs
             value={activeTab}
             onValueChange={(newTab) => {
-              console.log("Tab changing from", activeTab, "to", newTab);
               setActiveTab(newTab);
             }}
             className="w-full"

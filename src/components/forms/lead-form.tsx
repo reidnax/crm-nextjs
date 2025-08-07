@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, Calendar } from "lucide-react";
+import { X } from "lucide-react";
 import DealerForm from "./dealer-form";
 
 interface DealerFormData {

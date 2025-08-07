@@ -16,11 +16,8 @@ export const authOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
-          console.log("Missing credentials");
           return null;
         }
-
-        console.log("Attempting login for username:", credentials.username);
 
         const user = await prisma.user.findUnique({
           where: {
@@ -29,15 +26,11 @@ export const authOptions = {
         });
 
         if (!user) {
-          console.log("User not found:", credentials.username);
           return null;
         }
 
-        console.log("User found:", user.username, "Active:", user.active);
-
         // Check if user is active
         if (!user.active) {
-          console.log("User is inactive:", credentials.username);
           return null;
         }
 
@@ -46,14 +39,9 @@ export const authOptions = {
           user.password
         );
 
-        console.log("Password valid:", isPasswordValid);
-
         if (!isPasswordValid) {
-          console.log("Invalid password for user:", credentials.username);
           return null;
         }
-
-        console.log("Login successful for user:", user.username);
 
         return {
           id: user.id.toString(),
@@ -131,10 +119,10 @@ export const authOptions = {
 
                 // Override session with impersonated user data
                 sessionObj.user.id = impersonatedUser.id.toString();
-                sessionObj.user.name = impersonatedUser.name;
+                sessionObj.user.name = impersonatedUser.name || undefined;
                 sessionObj.user.email = impersonatedUser.email;
                 sessionObj.user.username = impersonatedUser.username;
-                sessionObj.user.role = impersonatedUser.role;
+                sessionObj.user.role = impersonatedUser.role || undefined;
                 sessionObj.user.isImpersonated = true;
                 sessionObj.user.realUserId = realUserId;
                 sessionObj.user.realUserRole = realUserRole; // Preserve original role for dev mode checks

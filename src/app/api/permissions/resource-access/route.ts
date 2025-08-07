@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PermissionManager } from "@/lib/permissions/core";
 import { PermissionKey } from "@/lib/permissions/permission-matrix";
@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
     // Get authenticated session
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!(session as any)?.user?.id) {
       return errorResponse("Authentication required", 401);
     }
 
-    const userId = parseInt(session.user.id);
+    const userId = parseInt(((session as any)?.user as any)?.id);
     const { searchParams } = new URL(request.url);
 
     const resourceType = searchParams.get("resourceType");

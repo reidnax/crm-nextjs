@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { processLeadData } from "@/lib/lead-data-processor";
 import { PermissionManager } from "@/lib/permissions/core";
-import { withPermissions } from "@/lib/middleware/permission-middleware";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
 
 // GET /api/leads - Get all leads with filtering and pagination
@@ -33,13 +32,15 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
-    // Get effective user (considers virtual user registration)
+    // Get effective user (considers user impersonation)
     const { userId, userRole, isVirtual } =
       await getEffectiveUserForPermissions(session);
 
     if (isVirtual) {
       console.log(
-        `Using virtual user: ${userRole} (ID: ${userId}) for Admin-Dev ${session.user.id}`
+        `Using impersonated user: ${userRole} (ID: ${userId}) for Admin-Dev ${
+          ((session as any)?.user as any)?.id
+        }`
       );
     }
 
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user has permission to create leads
@@ -256,6 +257,7 @@ export async function POST(request: NextRequest) {
 
     const lead = await prisma.lead.create({
       data: {
+        name: body.name, // Ensure name is explicitly included
         ...processedData,
         createdBy: userId,
       },

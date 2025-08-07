@@ -36,24 +36,20 @@ import {
   Filter,
   Download,
   MoreHorizontal,
-  Plus,
   UserPlus,
   Mail,
   Phone,
-  Calendar,
   CheckCircle,
-  XCircle,
   Shield,
   User,
   Edit3,
   Trash2,
-  AlertTriangle,
 } from "lucide-react";
 import AddTeamMemberDialog from "@/components/dialogs/add-team-member-dialog";
 import EditTeamMemberDialog from "@/components/dialogs/edit-team-member-dialog";
 import { isAdminRole, isAdminRoleVariation } from "@/lib/permissions";
 import { PermissionGate } from "@/components/auth/PermissionGate";
-import { usePermissions } from "@/contexts/PermissionContext";
+
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -79,7 +75,6 @@ interface TeamMember {
 
 export default function TeamPage() {
   const { data: session, status } = useSession();
-  const { hasPermission } = usePermissions();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -597,7 +592,6 @@ export default function TeamPage() {
                               onCheckedChange={(checked) =>
                                 handleToggleActive(member.id, checked)
                               }
-                              size="sm"
                             />
                           </div>
                         </div>

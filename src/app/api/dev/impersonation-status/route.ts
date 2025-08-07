@@ -7,13 +7,13 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!(session as any)?.user) {
       return errorResponse("Unauthorized", 401);
     }
 
     // Only Admin-Dev can access this endpoint (check both current role and real user role for impersonation)
-    const userRole = (session.user as any)?.role;
-    const realUserRole = (session.user as any)?.realUserRole;
+    const userRole = ((session as any)?.user as any)?.role;
+    const realUserRole = ((session as any)?.user as any)?.realUserRole;
     const isAdminDev = userRole === "Admin-Dev" || realUserRole === "Admin-Dev";
 
     if (!isAdminDev) {
@@ -21,14 +21,14 @@ export async function GET() {
     }
 
     // Check if we're currently impersonating
-    const isImpersonated = (session.user as any)?.isImpersonated;
-    const realUserId = (session.user as any)?.realUserId;
+    const isImpersonated = ((session as any)?.user as any)?.isImpersonated;
+    const realUserId = ((session as any)?.user as any)?.realUserId;
 
     if (isImpersonated) {
       // Get the impersonated user's full data
       const impersonatedUser = await prisma.user.findFirst({
         where: {
-          id: parseInt((session.user as any).id),
+          id: parseInt(((session as any)?.user as any)?.id),
           active: true,
         },
         select: {

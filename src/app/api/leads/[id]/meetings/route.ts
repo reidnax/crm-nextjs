@@ -69,7 +69,7 @@ export async function POST(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can access this lead
@@ -176,7 +176,7 @@ export async function GET(
       return errorResponse("Invalid lead ID", 400);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check if user can access this lead
@@ -228,7 +228,7 @@ export async function GET(
     }
 
     // Apply meeting filtering based on permissions
-    let meetingFilter: any = { leadId };
+    const meetingFilter: any = { leadId };
 
     if (!hasReadAllMeetings) {
       const permissionFilters = [];

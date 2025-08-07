@@ -166,7 +166,7 @@ export default function EditTeamMemberDialog({
       // Prepare update data (exclude password if empty)
       const updateData = { ...formData };
       if (!updateData.password) {
-        delete updateData.password;
+        delete (updateData as any).password;
       }
 
       const response = await fetch(`/api/team/${teamMember.id}`, {

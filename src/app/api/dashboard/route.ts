@@ -13,7 +13,7 @@ export async function GET() {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get effective user (supports virtual users)
+    // Get effective user (supports user impersonation)
     const { userId } = await getEffectiveUserForPermissions(session);
 
     // Check permissions for different data types

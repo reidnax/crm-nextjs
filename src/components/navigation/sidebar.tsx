@@ -19,10 +19,8 @@ import {
   LogOut,
   ChevronLeft,
   Shield,
-  Bug,
   Activity,
 } from "lucide-react";
-import { useState } from "react";
 import { RoleGate } from "@/components/auth/RoleGate";
 import { usePermissions } from "@/contexts/PermissionContext";
 import { SidebarDevSwitcher } from "@/components/dev/SidebarDevSwitcher";
@@ -43,7 +41,6 @@ const adminNavigation = [
 ];
 
 const debugNavigation = [
-  { name: "Debug Tools", href: "/debug", icon: Bug },
   { name: "Performance Debug", href: "/debug-new", icon: Activity },
 ];
 
@@ -116,18 +113,20 @@ export default function Sidebar({
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={session.user?.image || ""} />
+              <AvatarImage src={session?.user?.image || ""} />
               <AvatarFallback className="bg-blue-500 text-white">
-                {getInitials(session.user?.name || session.user?.email || "U")}
+                {getInitials(
+                  session?.user?.name || session?.user?.email || "U"
+                )}
               </AvatarFallback>
             </Avatar>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {session.user?.name || "User"}
+                  {session?.user?.name || "User"}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
-                  {session.user?.email}
+                  {session?.user?.email}
                 </p>
                 <Badge variant="secondary" className="mt-1 text-xs">
                   {user?.role || "User"}

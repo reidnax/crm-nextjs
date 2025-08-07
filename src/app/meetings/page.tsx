@@ -56,7 +56,8 @@ export default function MeetingsPage() {
               Meetings Hub Coming Soon!
             </CardTitle>
             <CardDescription className="text-lg text-gray-600">
-              We're building an amazing meetings management experience for you
+              We&apos;re building an amazing meetings management experience for
+              you
             </CardDescription>
           </CardHeader>
 
@@ -93,7 +94,7 @@ export default function MeetingsPage() {
 
             <div className="bg-gray-50 p-6 rounded-lg">
               <h4 className="font-semibold text-gray-900 mb-3">
-                What's Coming:
+                What&apos;s Coming:
               </h4>
               <ul className="text-left space-y-2 text-gray-700 max-w-md mx-auto">
                 <li className="flex items-center gap-2">

@@ -93,11 +93,6 @@ export default function LeadsPage() {
 
   const fetchLeads = useCallback(
     async (page: number, size: number, filterValues: FilterValues) => {
-      console.log("Fetching leads with:", {
-        page,
-        pageSize: size,
-        filters: filterValues,
-      });
       loadingRef.current = true;
       try {
         const params = new URLSearchParams({
@@ -147,8 +142,6 @@ export default function LeadsPage() {
         const result = await response.json();
 
         if (result.success) {
-          console.log("API Response:", result.data.pagination);
-
           // Only update leads state if data actually changed
           setLeads((prevLeads) => {
             const newLeads = result.data.leads;
@@ -175,12 +168,9 @@ export default function LeadsPage() {
                 });
 
               if (!isDifferent) {
-                console.log("Data unchanged, skipping leads update");
                 return prevLeads; // Return previous state if data is the same
               }
             }
-
-            console.log("Data changed, updating leads");
             return newLeads;
           });
 

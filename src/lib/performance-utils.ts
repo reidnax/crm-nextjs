@@ -17,7 +17,6 @@ export class PerformanceMonitor {
     this.timers.delete(label);
 
     if (process.env.NODE_ENV === "development") {
-      console.log(`⏱️ ${label}: ${duration}ms`);
     }
 
     return duration;

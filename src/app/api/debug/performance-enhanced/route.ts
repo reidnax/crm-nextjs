@@ -1,18 +1,17 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import type { Session } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import {
-  PerformanceMonitor,
-  ConnectionPoolTester,
-} from "@/lib/performance-utils";
+import { PerformanceMonitor } from "@/lib/performance-utils";
 import { performance } from "perf_hooks";
+import type { PermissionKey } from "@/lib/permissions/permission-matrix";
 
 interface PerformanceMetric {
   name: string;
   duration: number;
   status: "success" | "error" | "warning";
-  details?: any;
+  details?: Record<string, unknown>;
   error?: string;
   recommendations?: string[];
 }
@@ -23,6 +22,7 @@ interface DatabasePerformance {
   complexQueries: PerformanceMetric[];
   aggregateQueries: PerformanceMetric[];
   transactions: PerformanceMetric[];
+  sustainedLoad?: PerformanceMetric;
 }
 
 interface SystemPerformance {
@@ -109,7 +109,7 @@ export async function GET() {
   try {
     PerformanceMonitor.start("enhanced-diagnostics");
 
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as Session | null;
     if (!session) {
       return errorResponse("Unauthorized", 401);
     }
@@ -123,7 +123,6 @@ export async function GET() {
     const connectionLimit = urlParams.get("connection_limit") || "not set";
     const hasPgBouncer =
       urlParams.has("pgbouncer") || databaseUrl.includes("pgbouncer=true");
-    const poolTimeout = urlParams.get("pool_timeout") || "not set";
 
     // Extract database host for location detection
     const dbHost = databaseUrl.match(/\/\/[^:]+@([^:/]+)/)?.[1] || "unknown";
@@ -151,8 +150,6 @@ export async function GET() {
           ? `${connectionLimit} (pooled, max 10,000)`
           : `${connectionLimit} (direct, max 839)`,
         location: dbLocation,
-        pooling: hasPgBouncer ? "enabled" : "disabled",
-        poolTimeout: poolTimeout,
       },
     };
 
@@ -167,7 +164,7 @@ export async function GET() {
 
     // Permission System Tests
     diagnostic.permissions = await runPermissionPerformanceTests(
-      (session as any).user?.id
+      session.user?.id
     );
 
     // Bottleneck Analysis
@@ -361,8 +358,8 @@ async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
     JSON.stringify(dbPerf, null, 2)
   );
   console.log("🔍 Connection pool tests included:", {
-    connectionPoolLoad: !!dbPerf.connectionPoolLoad,
-    connectionPoolStatus: !!dbPerf.connectionPoolStatus,
+    connectionPoolLoad: !!dbPerf.connectionPool,
+    connectionPoolStatus: !!dbPerf.connectionPool,
     sustainedLoad: !!dbPerf.sustainedLoad,
   });
 
@@ -485,7 +482,7 @@ async function runPermissionPerformanceTests(
       try {
         const hasPermission = await PermissionManager.hasPermission(
           parseInt(userId),
-          permission as any
+          permission as PermissionKey
         );
         const duration = performance.now() - start;
 
@@ -504,7 +501,7 @@ async function runPermissionPerformanceTests(
         });
       }
     }
-  } catch (error) {
+  } catch {
     results.push({
       name: "Permission System",
       duration: 0,
@@ -551,8 +548,8 @@ function analyzeBottlenecks(diagnostic: Partial<PerformanceDiagnostic>) {
 
   // Permission bottlenecks
   const permissionAvg =
-    diagnostic.permissions?.reduce((sum, p) => sum + p.duration, 0) /
-    (diagnostic.permissions?.length || 1);
+    (diagnostic.permissions || []).reduce((sum, p) => sum + p.duration, 0) /
+    Math.max((diagnostic.permissions || []).length, 1);
   if (permissionAvg > 500) {
     bottlenecks.push("Permission checks");
     severity = severity === "low" ? "medium" : severity;
@@ -592,8 +589,8 @@ function calculatePerformanceScores(
 
   // Permission score
   const permissionAvg =
-    diagnostic.permissions?.reduce((sum, p) => sum + p.duration, 0) /
-    (diagnostic.permissions?.length || 1);
+    (diagnostic.permissions || []).reduce((sum, p) => sum + p.duration, 0) /
+    Math.max((diagnostic.permissions || []).length, 1);
   const permissionScore = Math.max(0, 100 - permissionAvg / 5);
 
   // Overall score

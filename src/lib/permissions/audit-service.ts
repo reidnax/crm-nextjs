@@ -53,8 +53,12 @@ export class AuditService {
           userId: params.userId,
           action: params.action,
           permission: params.permission || null,
-          oldValue: params.oldValue ? JSON.stringify(params.oldValue) : null,
-          newValue: params.newValue ? JSON.stringify(params.newValue) : null,
+          oldValue: params.oldValue
+            ? JSON.stringify(params.oldValue)
+            : undefined,
+          newValue: params.newValue
+            ? JSON.stringify(params.newValue)
+            : undefined,
           changedBy: params.changedBy || null,
           ipAddress: params.ipAddress || null,
           userAgent: params.userAgent || null,
@@ -76,7 +80,7 @@ export class AuditService {
           userId: params.userId,
           action: "resource_access",
           permission: null,
-          oldValue: null,
+          oldValue: undefined,
           newValue: JSON.stringify({
             resourceType: params.resourceType,
             resourceId: params.resourceId,
@@ -110,7 +114,7 @@ export class AuditService {
           userId,
           action,
           permission: null,
-          oldValue: null,
+          oldValue: undefined,
           newValue: JSON.stringify({
             success: action !== "login_failed",
             errorMessage: errorMessage || null,
@@ -169,7 +173,9 @@ export class AuditService {
           userId,
           action,
           permission: null,
-          oldValue: changes?.oldValue ? JSON.stringify(changes.oldValue) : null,
+          oldValue: changes?.oldValue
+            ? JSON.stringify(changes.oldValue)
+            : undefined,
           newValue: JSON.stringify({
             resourceType,
             resourceId,

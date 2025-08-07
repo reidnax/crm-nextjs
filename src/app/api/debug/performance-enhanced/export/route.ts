@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { errorResponse } from "@/lib/api-response";
 import { NextRequest } from "next/server";
 
 interface PerformanceMetric {
@@ -101,7 +101,11 @@ function escapeCSV(value: any): string {
     return "";
   }
   const stringValue = String(value);
-  if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
+  if (
+    stringValue.includes(",") ||
+    stringValue.includes('"') ||
+    stringValue.includes("\n")
+  ) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
   return stringValue;
@@ -124,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     // Generate CSV content
     const csvRows: string[] = [];
-    
+
     // Header row
     const headers = [
       "Timestamp",
@@ -180,7 +184,7 @@ export async function POST(request: NextRequest) {
       "Database_ComplexQueries",
       "Database_AggregateQueries",
       "Network_ExternalAPIs",
-      "Permissions_Details"
+      "Permissions_Details",
     ];
 
     csvRows.push(headers.join(","));
@@ -236,11 +240,31 @@ export async function POST(request: NextRequest) {
       escapeCSV(data.recommendations.immediate.join("; ")),
       escapeCSV(data.recommendations.shortTerm.join("; ")),
       escapeCSV(data.recommendations.longTerm.join("; ")),
-      escapeCSV(data.database.simpleQueries.map(q => `${q.name}:${q.duration}ms:${q.status}`).join("; ")),
-      escapeCSV(data.database.complexQueries.map(q => `${q.name}:${q.duration}ms:${q.status}`).join("; ")),
-      escapeCSV(data.database.aggregateQueries.map(q => `${q.name}:${q.duration}ms:${q.status}`).join("; ")),
-      escapeCSV(data.network.externalAPIs.map(api => `${api.name}:${api.duration}ms:${api.status}`).join("; ")),
-      escapeCSV(data.permissions.map(p => `${p.name}:${p.duration}ms:${p.status}`).join("; "))
+      escapeCSV(
+        data.database.simpleQueries
+          .map((q) => `${q.name}:${q.duration}ms:${q.status}`)
+          .join("; ")
+      ),
+      escapeCSV(
+        data.database.complexQueries
+          .map((q) => `${q.name}:${q.duration}ms:${q.status}`)
+          .join("; ")
+      ),
+      escapeCSV(
+        data.database.aggregateQueries
+          .map((q) => `${q.name}:${q.duration}ms:${q.status}`)
+          .join("; ")
+      ),
+      escapeCSV(
+        data.network.externalAPIs
+          .map((api) => `${api.name}:${api.duration}ms:${api.status}`)
+          .join("; ")
+      ),
+      escapeCSV(
+        data.permissions
+          .map((p) => `${p.name}:${p.duration}ms:${p.status}`)
+          .join("; ")
+      ),
     ];
 
     csvRows.push(dataRow.join(","));

@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Save, Eye, EyeOff, User, Lock, Globe } from "lucide-react";
 import { toast } from "sonner";
 
@@ -418,7 +417,7 @@ export default function ProfileEditForm({
             Change Password
           </CardTitle>
           <CardDescription>
-            Leave blank if you don't want to change your password
+            Leave blank if you don&apos;t want to change your password
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
