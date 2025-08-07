@@ -112,6 +112,9 @@ export async function GET() {
       return errorResponse("Unauthorized", 401);
     }
 
+    // Add cache-busting timestamp to prevent Vercel caching
+    const cacheBuster = Date.now();
+
     // Environment Detection
     diagnostic.environment = {
       node: process.version,
@@ -138,7 +141,7 @@ export async function GET() {
 
     // Permission System Tests
     diagnostic.permissions = await runPermissionPerformanceTests(
-      session.user?.id
+      (session as any).user?.id
     );
 
     // Bottleneck Analysis
@@ -161,14 +164,23 @@ export async function GET() {
 
     const totalDuration = PerformanceMonitor.end("enhanced-diagnostics");
 
-    return successResponse({
+    const response = successResponse({
       ...diagnostic,
       meta: {
         executionTime: totalDuration,
         testsConducted: getTotalTestCount(diagnostic),
         version: "2.0",
+        cacheBuster: cacheBuster, // Add cache buster to prevent Vercel caching
       },
     });
+
+    // Add cache-busting headers to prevent Vercel caching
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('X-Cache-Buster', cacheBuster.toString());
+
+    return response;
   } catch (error) {
     console.error("Enhanced performance diagnostic error:", error);
     return errorResponse("Failed to run enhanced performance diagnostics");
@@ -201,12 +213,13 @@ async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
     dbPerf.connectionPool.duration = performance.now() - poolStart;
   }
 
-  // Simple Queries
+  // Simple Queries with cache-busting
+  const cacheBuster = Date.now();
   const simpleQueries = [
-    { name: "User Count", query: () => prisma.user.count() },
-    { name: "Lead Count", query: () => prisma.lead.count() },
-    { name: "Meeting Count", query: () => prisma.meeting.count() },
-    { name: "Task Count", query: () => prisma.task.count() },
+    { name: "User Count", query: () => prisma.user.count({ where: { id: { gte: 0 } } }) },
+    { name: "Lead Count", query: () => prisma.lead.count({ where: { id: { gte: 0 } } }) },
+    { name: "Meeting Count", query: () => prisma.meeting.count({ where: { id: { gte: 0 } } }) },
+    { name: "Task Count", query: () => prisma.task.count({ where: { id: { gte: 0 } } }) },
   ];
 
   for (const test of simpleQueries) {
@@ -230,21 +243,24 @@ async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
     }
   }
 
-  // Complex Queries
+  // Complex Queries with cache-busting
   const complexStart = performance.now();
   try {
     const [leadsWithMeetings, tasksWithAssignees, notesWithLeads] =
       await Promise.all([
         prisma.lead.findMany({
           take: 10,
+          where: { id: { gte: 0 } }, // Cache-busting condition
           include: { meetings: true, tasks: true },
         }),
         prisma.task.findMany({
           take: 10,
+          where: { id: { gte: 0 } }, // Cache-busting condition
           include: { lead: true },
         }),
         prisma.note.findMany({
           take: 10,
+          where: { id: { gte: 0 } }, // Cache-busting condition
           include: { lead: true },
         }),
       ]);
@@ -418,7 +434,7 @@ async function runPermissionPerformanceTests(
       try {
         const hasPermission = await PermissionManager.hasPermission(
           parseInt(userId),
-          permission
+          permission as any
         );
         const duration = performance.now() - start;
 
