@@ -201,7 +201,13 @@ export default function EnhancedPerformanceMonitor() {
     
     setExporting(true);
     try {
-      const response = await fetch("/api/debug/performance-enhanced/export");
+      const response = await fetch("/api/debug/performance-enhanced/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(performanceData),
+      });
       
       if (!response.ok) {
         throw new Error("Failed to export CSV");
@@ -228,7 +234,13 @@ export default function EnhancedPerformanceMonitor() {
     
     setExporting(true);
     try {
-      const response = await fetch("/api/debug/performance-enhanced/export-detailed");
+      const response = await fetch("/api/debug/performance-enhanced/export-detailed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(performanceData),
+      });
       
       if (!response.ok) {
         throw new Error("Failed to export detailed CSV");

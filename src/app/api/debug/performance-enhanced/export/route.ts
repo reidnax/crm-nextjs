@@ -107,49 +107,20 @@ function escapeCSV(value: any): string {
   return stringValue;
 }
 
-// Helper function to convert object to CSV row
-function objectToCSVRow(obj: any, prefix = ""): string[] {
-  const row: string[] = [];
-  for (const [key, value] of Object.entries(obj)) {
-    const columnName = prefix ? `${prefix}_${key}` : key;
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      row.push(...objectToCSVRow(value, columnName));
-    } else if (Array.isArray(value)) {
-      if (value.length > 0 && typeof value[0] === "object") {
-        // Handle array of objects
-        value.forEach((item, index) => {
-          const itemRow = objectToCSVRow(item, `${columnName}_${index + 1}`);
-          row.push(...itemRow);
-        });
-      } else {
-        // Handle simple arrays
-        row.push(escapeCSV(value.join("; ")));
-      }
-    } else {
-      row.push(escapeCSV(value));
-    }
-  }
-  return row;
-}
-
-// GET /api/debug/performance-enhanced/export - Export performance diagnostics as CSV
-export async function GET(request: NextRequest) {
+// POST /api/debug/performance-enhanced/export - Export performance diagnostics as CSV
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get the performance data from the main endpoint
-    const baseUrl = request.nextUrl.origin;
-    const response = await fetch(`${baseUrl}/api/debug/performance-enhanced`);
-    const result = await response.json();
+    // Get the performance data from the request body
+    const data: EnhancedPerformanceData = await request.json();
 
-    if (!result.success) {
-      return errorResponse("Failed to fetch performance data");
+    if (!data) {
+      return errorResponse("No performance data provided");
     }
-
-    const data: EnhancedPerformanceData = result.data;
 
     // Generate CSV content
     const csvRows: string[] = [];
@@ -289,4 +260,4 @@ export async function GET(request: NextRequest) {
     console.error("CSV export error:", error);
     return errorResponse("Failed to export CSV");
   }
-} 
+}

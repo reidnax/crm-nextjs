@@ -307,23 +307,19 @@ function generatePermissionsSheet(data: EnhancedPerformanceData): string {
 }
 
 // GET /api/debug/performance-enhanced/export-detailed - Export detailed performance diagnostics as CSV
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Get the performance data from the main endpoint
-    const baseUrl = request.nextUrl.origin;
-    const response = await fetch(`${baseUrl}/api/debug/performance-enhanced`);
-    const result = await response.json();
+    // Get the performance data from the request body
+    const data: EnhancedPerformanceData = await request.json();
 
-    if (!result.success) {
-      return errorResponse("Failed to fetch performance data");
+    if (!data) {
+      return errorResponse("No performance data provided");
     }
-
-    const data: EnhancedPerformanceData = result.data;
 
     // Generate all sheets
     const summarySheet = generateSummarySheet(data);
