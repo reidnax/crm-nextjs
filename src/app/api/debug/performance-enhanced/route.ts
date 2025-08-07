@@ -2,7 +2,10 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { PerformanceMonitor } from "@/lib/performance-utils";
+import {
+  PerformanceMonitor,
+  ConnectionPoolTester,
+} from "@/lib/performance-utils";
 import { performance } from "perf_hooks";
 
 interface PerformanceMetric {
@@ -16,6 +19,9 @@ interface PerformanceMetric {
 
 interface DatabasePerformance {
   connectionPool: PerformanceMetric;
+  connectionPoolLoad: PerformanceMetric;
+  connectionPoolStatus: PerformanceMetric;
+  sustainedLoad: PerformanceMetric;
   simpleQueries: PerformanceMetric[];
   complexQueries: PerformanceMetric[];
   aggregateQueries: PerformanceMetric[];
@@ -101,8 +107,7 @@ interface PerformanceDiagnostic {
 
 // GET /api/debug/performance-enhanced - Enhanced performance diagnostics
 export async function GET() {
-  const startTime = performance.now();
-  let diagnostic: Partial<PerformanceDiagnostic> = {};
+  const diagnostic: Partial<PerformanceDiagnostic> = {};
 
   try {
     PerformanceMonitor.start("enhanced-diagnostics");
@@ -115,18 +120,42 @@ export async function GET() {
     // Add cache-busting timestamp to prevent Vercel caching
     const cacheBuster = Date.now();
 
-    // Environment Detection
+    // Environment Detection with proper Vercel variables
+    const databaseUrl = process.env.DATABASE_URL || "";
+    const urlParams = new URLSearchParams(databaseUrl.split("?")[1] || "");
+    const connectionLimit = urlParams.get("connection_limit") || "not set";
+    const hasPgBouncer =
+      urlParams.has("pgbouncer") || databaseUrl.includes("pgbouncer=true");
+    const poolTimeout = urlParams.get("pool_timeout") || "not set";
+
+    // Extract database host for location detection
+    const dbHost = databaseUrl.match(/\/\/[^:]+@([^:/]+)/)?.[1] || "unknown";
+    let dbLocation = "unknown";
+    if (dbHost.includes("neon.tech")) {
+      // Extract region from Neon.tech hostname
+      const regionMatch = dbHost.match(/([a-z]+-[a-z]+-\d+)/);
+      dbLocation = regionMatch ? `${regionMatch[1]} (Neon.tech)` : "Neon.tech";
+    }
+
     diagnostic.environment = {
       node: process.version,
       vercel: {
-        region: process.env.VERCEL_REGION || "local",
-        timeout: process.env.VERCEL_FUNCTION_TIMEOUT || "unknown",
-        memory: process.env.VERCEL_FUNCTION_MEMORY || "unknown",
+        region: process.env.VERCEL_REGION || process.env.AWS_REGION || "local",
+        timeout: process.env.VERCEL_MAX_DURATION || "30s",
+        memory: process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE
+          ? `${process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE}MB`
+          : process.env.VERCEL_REGION
+          ? "1024MB (default)"
+          : "local",
       },
       database: {
         provider: "postgresql",
-        connectionLimit: process.env.DATABASE_CONNECTION_LIMIT || "unknown",
-        location: process.env.DATABASE_REGION || "unknown",
+        connectionLimit: hasPgBouncer
+          ? `${connectionLimit} (pooled, max 10,000)`
+          : `${connectionLimit} (direct, max 839)`,
+        location: dbLocation,
+        pooling: hasPgBouncer ? "enabled" : "disabled",
+        poolTimeout: poolTimeout,
       },
     };
 
@@ -175,10 +204,13 @@ export async function GET() {
     });
 
     // Add cache-busting headers to prevent Vercel caching
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    response.headers.set('X-Cache-Buster', cacheBuster.toString());
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("X-Cache-Buster", cacheBuster.toString());
 
     return response;
   } catch (error) {
@@ -190,6 +222,21 @@ export async function GET() {
 async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
   const dbPerf: DatabasePerformance = {
     connectionPool: { name: "Connection Pool", duration: 0, status: "success" },
+    connectionPoolLoad: {
+      name: "Connection Pool Load Test",
+      duration: 0,
+      status: "success",
+    },
+    connectionPoolStatus: {
+      name: "Connection Pool Status",
+      duration: 0,
+      status: "success",
+    },
+    sustainedLoad: {
+      name: "Sustained Load Test",
+      duration: 0,
+      status: "success",
+    },
     simpleQueries: [],
     complexQueries: [],
     aggregateQueries: [],
@@ -213,13 +260,137 @@ async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
     dbPerf.connectionPool.duration = performance.now() - poolStart;
   }
 
+  // Connection Pool Load Test
+  console.log("🔍 Starting connection pool load test...");
+  const loadTestStart = performance.now();
+  try {
+    const loadTestResults = await ConnectionPoolTester.testConnectionPoolLoad(
+      15
+    );
+    console.log("✅ Connection pool load test completed:", loadTestResults);
+    dbPerf.connectionPoolLoad.duration = performance.now() - loadTestStart;
+    dbPerf.connectionPoolLoad.status =
+      loadTestResults.connectionFailures > 0
+        ? "error"
+        : loadTestResults.avgConnectionTime > 500
+        ? "warning"
+        : "success";
+    dbPerf.connectionPoolLoad.details = {
+      avgConnectionTime: loadTestResults.avgConnectionTime,
+      maxConnectionTime: loadTestResults.maxConnectionTime,
+      minConnectionTime: loadTestResults.minConnectionTime,
+      connectionFailures: loadTestResults.connectionFailures,
+      recommendedLimit: loadTestResults.recommendedLimit,
+      concurrentConnections: loadTestResults.concurrentConnections,
+      queueTime: loadTestResults.queueTime,
+      throughput: loadTestResults.throughput,
+    };
+    if (loadTestResults.connectionFailures > 0) {
+      dbPerf.connectionPoolLoad.error = `${loadTestResults.connectionFailures} connection failures detected`;
+    }
+    if (loadTestResults.recommendedLimit > 10) {
+      dbPerf.connectionPoolLoad.recommendations = [
+        `Consider increasing connection_limit to ${loadTestResults.recommendedLimit}`,
+        `Current avg connection time: ${loadTestResults.avgConnectionTime}ms`,
+      ];
+    }
+  } catch (error) {
+    console.error("❌ Connection pool load test failed:", error);
+    dbPerf.connectionPoolLoad.status = "error";
+    dbPerf.connectionPoolLoad.error =
+      error instanceof Error ? error.message : "Unknown error";
+    dbPerf.connectionPoolLoad.duration = performance.now() - loadTestStart;
+  }
+
+  // Connection Pool Status
+  console.log("📊 Starting connection pool status test...");
+  const statusTestStart = performance.now();
+  try {
+    const poolStatus = await ConnectionPoolTester.getConnectionPoolStatus();
+    console.log("✅ Connection pool status completed:", poolStatus);
+    dbPerf.connectionPoolStatus.duration = performance.now() - statusTestStart;
+    dbPerf.connectionPoolStatus.status =
+      poolStatus.connectionPoolUtilization > 80 ? "warning" : "success";
+    dbPerf.connectionPoolStatus.details = {
+      activeConnections: poolStatus.activeConnections,
+      maxConnections: poolStatus.maxConnections,
+      utilization: poolStatus.connectionPoolUtilization,
+      databaseName: poolStatus.databaseName,
+      serverVersion: poolStatus.serverVersion,
+    };
+    if (poolStatus.connectionPoolUtilization > 80) {
+      dbPerf.connectionPoolStatus.recommendations = [
+        "Connection pool utilization is high (>80%)",
+        "Consider increasing connection limits or optimizing query patterns",
+      ];
+    }
+  } catch (error) {
+    console.error("❌ Connection pool status test failed:", error);
+    dbPerf.connectionPoolStatus.status = "error";
+    dbPerf.connectionPoolStatus.error =
+      error instanceof Error ? error.message : "Unknown error";
+    dbPerf.connectionPoolStatus.duration = performance.now() - statusTestStart;
+  }
+
+  // Sustained Load Test (shorter duration for production)
+  console.log("⚡ Starting sustained load test...");
+  const sustainedTestStart = performance.now();
+  try {
+    const sustainedResults = await ConnectionPoolTester.testSustainedLoad(
+      5000,
+      3
+    ); // 5 seconds, 3 concurrent
+    console.log("✅ Sustained load test completed:", sustainedResults);
+    dbPerf.sustainedLoad.duration = performance.now() - sustainedTestStart;
+    dbPerf.sustainedLoad.status =
+      sustainedResults.failedQueries > 0
+        ? "error"
+        : sustainedResults.avgResponseTime > 300
+        ? "warning"
+        : "success";
+    dbPerf.sustainedLoad.details = {
+      totalQueries: sustainedResults.totalQueries,
+      successfulQueries: sustainedResults.successfulQueries,
+      failedQueries: sustainedResults.failedQueries,
+      avgResponseTime: sustainedResults.avgResponseTime,
+      maxResponseTime: sustainedResults.maxResponseTime,
+      queriesPerSecond: sustainedResults.queriesPerSecond,
+    };
+    if (sustainedResults.failedQueries > 0) {
+      dbPerf.sustainedLoad.error = `${sustainedResults.failedQueries} queries failed during sustained load test`;
+    }
+    if (sustainedResults.queriesPerSecond < 10) {
+      dbPerf.sustainedLoad.recommendations = [
+        "Low query throughput detected",
+        "Consider optimizing database configuration or upgrading resources",
+      ];
+    }
+  } catch (error) {
+    console.error("❌ Sustained load test failed:", error);
+    dbPerf.sustainedLoad.status = "error";
+    dbPerf.sustainedLoad.error =
+      error instanceof Error ? error.message : "Unknown error";
+    dbPerf.sustainedLoad.duration = performance.now() - sustainedTestStart;
+  }
+
   // Simple Queries with cache-busting
-  const cacheBuster = Date.now();
   const simpleQueries = [
-    { name: "User Count", query: () => prisma.user.count({ where: { id: { gte: 0 } } }) },
-    { name: "Lead Count", query: () => prisma.lead.count({ where: { id: { gte: 0 } } }) },
-    { name: "Meeting Count", query: () => prisma.meeting.count({ where: { id: { gte: 0 } } }) },
-    { name: "Task Count", query: () => prisma.task.count({ where: { id: { gte: 0 } } }) },
+    {
+      name: "User Count",
+      query: () => prisma.user.count({ where: { id: { gte: 0 } } }),
+    },
+    {
+      name: "Lead Count",
+      query: () => prisma.lead.count({ where: { id: { gte: 0 } } }),
+    },
+    {
+      name: "Meeting Count",
+      query: () => prisma.meeting.count({ where: { id: { gte: 0 } } }),
+    },
+    {
+      name: "Task Count",
+      query: () => prisma.task.count({ where: { id: { gte: 0 } } }),
+    },
   ];
 
   for (const test of simpleQueries) {
@@ -314,6 +485,17 @@ async function runDatabasePerformanceTests(): Promise<DatabasePerformance> {
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
+
+  // Debug: Log the complete database performance object
+  console.log(
+    "🔍 Complete database performance object:",
+    JSON.stringify(dbPerf, null, 2)
+  );
+  console.log("🔍 Connection pool tests included:", {
+    connectionPoolLoad: !!dbPerf.connectionPoolLoad,
+    connectionPoolStatus: !!dbPerf.connectionPoolStatus,
+    sustainedLoad: !!dbPerf.sustainedLoad,
+  });
 
   return dbPerf;
 }

@@ -49,10 +49,15 @@ interface EnhancedPerformanceData {
       provider: string;
       connectionLimit: string;
       location: string;
+      pooling?: string;
+      poolTimeout?: string;
     };
   };
   database: {
     connectionPool: PerformanceMetric;
+    connectionPoolLoad: PerformanceMetric;
+    connectionPoolStatus: PerformanceMetric;
+    sustainedLoad: PerformanceMetric;
     simpleQueries: PerformanceMetric[];
     complexQueries: PerformanceMetric[];
     aggregateQueries: PerformanceMetric[];
@@ -198,7 +203,7 @@ export default function EnhancedPerformanceMonitor() {
 
   const exportToCSV = async () => {
     if (!performanceData) return;
-    
+
     setExporting(true);
     try {
       const response = await fetch("/api/debug/performance-enhanced/export", {
@@ -208,16 +213,18 @@ export default function EnhancedPerformanceMonitor() {
         },
         body: JSON.stringify(performanceData),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to export CSV");
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `performance-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      a.download = `performance-diagnostics-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -231,32 +238,39 @@ export default function EnhancedPerformanceMonitor() {
 
   const exportDetailedCSV = async () => {
     if (!performanceData) return;
-    
+
     setExporting(true);
     try {
-      const response = await fetch("/api/debug/performance-enhanced/export-detailed", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(performanceData),
-      });
-      
+      const response = await fetch(
+        "/api/debug/performance-enhanced/export-detailed",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(performanceData),
+        }
+      );
+
       if (!response.ok) {
         throw new Error("Failed to export detailed CSV");
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `detailed-performance-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      a.download = `detailed-performance-diagnostics-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to export detailed CSV");
+      setError(
+        err instanceof Error ? err.message : "Failed to export detailed CSV"
+      );
     } finally {
       setExporting(false);
     }
@@ -546,7 +560,7 @@ export default function EnhancedPerformanceMonitor() {
                 <CardContent className="space-y-4">
                   {/* Connection Pool */}
                   <div className="space-y-2">
-                    <h4 className="font-medium">Connection Pool</h4>
+                    <h4 className="font-medium">Connection Pool (Basic)</h4>
                     <div className="flex items-center gap-2">
                       {getStatusIcon(
                         performanceData.database.connectionPool.status
@@ -556,6 +570,267 @@ export default function EnhancedPerformanceMonitor() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Connection Pool Load Test */}
+                  {performanceData.database.connectionPoolLoad && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Connection Pool Load Test
+                      </h4>
+                      <div className="bg-blue-50 p-3 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(
+                              performanceData.database.connectionPoolLoad.status
+                            )}
+                            <span className="text-sm font-medium">
+                              Load Test Results
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-600">
+                            {
+                              performanceData.database.connectionPoolLoad
+                                .duration
+                            }
+                            ms
+                          </span>
+                        </div>
+
+                        {performanceData.database.connectionPoolLoad
+                          .details && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Avg Time</div>
+                              <div className="text-blue-600">
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.avgConnectionTime
+                                }
+                                ms
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Max Time</div>
+                              <div className="text-orange-600">
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.maxConnectionTime
+                                }
+                                ms
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Failures</div>
+                              <div
+                                className={
+                                  performanceData.database.connectionPoolLoad
+                                    .details.connectionFailures > 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.connectionFailures
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Throughput</div>
+                              <div className="text-green-600">
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.throughput
+                                }
+                                /s
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {performanceData.database.connectionPoolLoad.details
+                          ?.recommendedLimit && (
+                          <div className="bg-yellow-50 border border-yellow-200 p-2 rounded text-sm">
+                            <strong>Recommended:</strong> connection_limit=
+                            {
+                              performanceData.database.connectionPoolLoad
+                                .details.recommendedLimit
+                            }
+                          </div>
+                        )}
+
+                        {performanceData.database.connectionPoolLoad
+                          .recommendations && (
+                          <div className="space-y-1">
+                            {performanceData.database.connectionPoolLoad.recommendations.map(
+                              (rec, idx) => (
+                                <div
+                                  key={idx}
+                                  className="text-xs text-amber-700 bg-amber-50 p-1 rounded"
+                                >
+                                  • {rec}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Connection Pool Status */}
+                  {performanceData.database.connectionPoolStatus && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Connection Pool Status
+                      </h4>
+                      <div className="bg-green-50 p-3 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(
+                              performanceData.database.connectionPoolStatus
+                                .status
+                            )}
+                            <span className="text-sm font-medium">
+                              Pool Status
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-600">
+                            {
+                              performanceData.database.connectionPoolStatus
+                                .duration
+                            }
+                            ms
+                          </span>
+                        </div>
+
+                        {performanceData.database.connectionPoolStatus
+                          .details && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Active</div>
+                              <div className="text-blue-600">
+                                {
+                                  performanceData.database.connectionPoolStatus
+                                    .details.activeConnections
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Max</div>
+                              <div className="text-gray-600">
+                                {
+                                  performanceData.database.connectionPoolStatus
+                                    .details.maxConnections
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Utilization</div>
+                              <div
+                                className={
+                                  performanceData.database.connectionPoolStatus
+                                    .details.utilization > 80
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {
+                                  performanceData.database.connectionPoolStatus
+                                    .details.utilization
+                                }
+                                %
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Database</div>
+                              <div className="text-gray-600 truncate">
+                                {
+                                  performanceData.database.connectionPoolStatus
+                                    .details.databaseName
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sustained Load Test */}
+                  {performanceData.database.sustainedLoad && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Sustained Load Test
+                      </h4>
+                      <div className="bg-purple-50 p-3 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(
+                              performanceData.database.sustainedLoad.status
+                            )}
+                            <span className="text-sm font-medium">
+                              Load Test (5s)
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-600">
+                            {performanceData.database.sustainedLoad.duration}ms
+                          </span>
+                        </div>
+
+                        {performanceData.database.sustainedLoad.details && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Total Queries</div>
+                              <div className="text-blue-600">
+                                {
+                                  performanceData.database.sustainedLoad.details
+                                    .totalQueries
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Successful</div>
+                              <div className="text-green-600">
+                                {
+                                  performanceData.database.sustainedLoad.details
+                                    .successfulQueries
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">Failed</div>
+                              <div
+                                className={
+                                  performanceData.database.sustainedLoad.details
+                                    .failedQueries > 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {
+                                  performanceData.database.sustainedLoad.details
+                                    .failedQueries
+                                }
+                              </div>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <div className="font-medium">QPS</div>
+                              <div className="text-purple-600">
+                                {
+                                  performanceData.database.sustainedLoad.details
+                                    .queriesPerSecond
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Simple Queries */}
                   <div className="space-y-2">
@@ -887,6 +1162,204 @@ export default function EnhancedPerformanceMonitor() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Database URI Configuration */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Database URI Configuration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      🔧 Optimal Neon.tech Configuration
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <strong>Current DATABASE_URL should include:</strong>
+                        <code className="block bg-white p-2 mt-1 rounded text-xs font-mono overflow-x-auto">
+                          postgresql://user:pass@host/db?sslmode=require&channel_binding=require&pgbouncer=true&connection_limit=25&pool_timeout=20&connect_timeout=30&idle_timeout=300
+                        </code>
+                      </div>
+
+                      {/* Connection Pool Load Test Results */}
+                      {performanceData.database.connectionPoolLoad?.details && (
+                        <div className="space-y-2">
+                          <strong>Connection Pool Analysis:</strong>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-white p-2 rounded">
+                              <span className="font-medium">
+                                Current Avg Time:{" "}
+                              </span>
+                              <span
+                                className={
+                                  performanceData.database.connectionPoolLoad
+                                    .details.avgConnectionTime > 200
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.avgConnectionTime
+                                }
+                                ms
+                              </span>
+                            </div>
+                            <div className="bg-white p-2 rounded">
+                              <span className="font-medium">
+                                Recommended Limit:{" "}
+                              </span>
+                              <span className="text-blue-600">
+                                {
+                                  performanceData.database.connectionPoolLoad
+                                    .details.recommendedLimit
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <strong>Critical Parameters:</strong>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-gray-700">
+                          <li>
+                            <code>pgbouncer=true</code> - Enables connection
+                            pooling (10,000 vs 839 connections)
+                          </li>
+                          <li>
+                            <code>connection_limit=25</code> - Optimal for
+                            production CRM (supports 15-25 concurrent users)
+                          </li>
+                          <li>
+                            <code>pool_timeout=20</code> - Faster failure
+                            detection during peak traffic
+                          </li>
+                          <li>
+                            <code>connect_timeout=30</code> - Maximum time to
+                            establish connection
+                          </li>
+                          <li>
+                            <code>idle_timeout=300</code> - Close idle
+                            connections after 5 minutes
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <h4 className="font-medium text-green-800 mb-2">
+                        ✅ Production Ready
+                      </h4>
+                      <ul className="text-xs text-green-700 space-y-1">
+                        <li>• Connection pool enabled</li>
+                        <li>• SSL security enforced</li>
+                        <li>• Timeout protection configured</li>
+                        <li>• Optimal connection limits</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                      <h4 className="font-medium text-yellow-800 mb-2">
+                        ⚠️ Monitor These
+                      </h4>
+                      <ul className="text-xs text-yellow-700 space-y-1">
+                        <li>• Connection pool utilization</li>
+                        <li>• Query response times</li>
+                        <li>• Connection failures</li>
+                        <li>• Database latency spikes</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                    <h4 className="font-medium text-red-800 mb-2">
+                      🚨 Critical Issues
+                    </h4>
+                    <div className="space-y-2 text-xs text-red-700">
+                      {performanceData.environment.database.pooling ===
+                        "disabled" && (
+                        <div className="flex items-start gap-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <strong>Missing pgbouncer=true</strong>
+                            <p>
+                              Add pgbouncer=true to your DATABASE_URL to fix
+                              1,300ms+ connection delays
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {performanceData.database.connectionPoolLoad?.details
+                        ?.connectionFailures > 0 && (
+                        <div className="flex items-start gap-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <strong>Connection Pool Failures</strong>
+                            <p>
+                              {
+                                performanceData.database.connectionPoolLoad
+                                  .details.connectionFailures
+                              }{" "}
+                              failed connections detected
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {performanceData.database.connectionPoolLoad?.details
+                        ?.avgConnectionTime > 500 && (
+                        <div className="flex items-start gap-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <strong>High Connection Latency</strong>
+                            <p>
+                              Average connection time:{" "}
+                              {
+                                performanceData.database.connectionPoolLoad
+                                  .details.avgConnectionTime
+                              }
+                              ms (should be &lt;100ms)
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+                    <h4 className="font-medium text-gray-800 mb-2">
+                      📊 Performance Benchmarks
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="text-center">
+                        <div className="font-medium text-green-600">
+                          &lt; 50ms
+                        </div>
+                        <div className="text-gray-600">Excellent</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-medium text-yellow-600">
+                          50-200ms
+                        </div>
+                        <div className="text-gray-600">Good</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-medium text-red-600">
+                          &gt; 200ms
+                        </div>
+                        <div className="text-gray-600">Needs Fix</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 
@@ -915,6 +1388,30 @@ export default function EnhancedPerformanceMonitor() {
                     Pool Limit:{" "}
                     {performanceData.environment.database.connectionLimit}
                   </p>
+                  {performanceData.environment.database.pooling && (
+                    <p className="flex items-center gap-1">
+                      Pooling:{" "}
+                      <span
+                        className={
+                          performanceData.environment.database.pooling ===
+                          "enabled"
+                            ? "text-green-600 font-medium"
+                            : "text-red-600 font-medium"
+                        }
+                      >
+                        {performanceData.environment.database.pooling}
+                      </span>
+                    </p>
+                  )}
+                  {performanceData.environment.database.poolTimeout && (
+                    <p className="text-xs text-gray-600">
+                      Pool Timeout:{" "}
+                      {performanceData.environment.database.poolTimeout ===
+                      "not set"
+                        ? "not set"
+                        : `${performanceData.environment.database.poolTimeout}s`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <h4 className="font-medium mb-2">Test Results</h4>
