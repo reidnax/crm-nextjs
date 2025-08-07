@@ -12,10 +12,16 @@ Add these environment variables in your Vercel project settings:
 ### Required Variables
 
 ```
-DATABASE_URL=postgresql://username:password@host:port/database
+DATABASE_URL=postgresql://username:password@host:port/database?connection_limit=10&pool_timeout=30&connect_timeout=30
 NEXTAUTH_SECRET=your-secret-key-here
 NEXTAUTH_URL=https://your-domain.vercel.app
 ```
+
+**Important**: The DATABASE_URL should include connection pooling parameters for optimal performance on Vercel:
+
+- `connection_limit=10` - Maximum connections per pool
+- `pool_timeout=30` - Connection pool timeout in seconds
+- `connect_timeout=30` - Connection timeout in seconds
 
 ### Optional Variables
 
@@ -24,10 +30,39 @@ NEXTAUTH_GITHUB_ID=your-github-oauth-id
 NEXTAUTH_GITHUB_SECRET=your-github-oauth-secret
 ```
 
+## Performance Optimization
+
+### Database Connection Pooling
+
+For optimal performance on Vercel, ensure your DATABASE_URL includes pooling parameters:
+
+```bash
+# Example for Supabase
+DATABASE_URL=postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres?connection_limit=10&pool_timeout=30&connect_timeout=30
+
+# Example for Railway
+DATABASE_URL=postgresql://postgres:[password]@containers-us-west-[id].railway.app:5432/railway?connection_limit=10&pool_timeout=30&connect_timeout=30
+```
+
+### Vercel Configuration
+
+Add these settings to your `vercel.json` (create if it doesn't exist):
+
+```json
+{
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"]
+}
+```
+
 ## Deployment Steps
 
 1. **Connect Repository**: Connect your GitHub repository to Vercel
-2. **Configure Environment Variables**: Add the required environment variables
+2. **Configure Environment Variables**: Add the required environment variables with connection pooling
 3. **Deploy**: Vercel will automatically build and deploy your application
 
 ## Build Configuration
@@ -51,8 +86,11 @@ npm i -g vercel
 # Login to Vercel
 vercel login
 
+# Link to your Vercel project (first time only)
+vercel link
+
 # Pull environment variables from your deployment
-vercel env pull .env.production
+vercel env pull .env
 
 # Run migrations (this will apply your migration files)
 npx prisma migrate deploy
@@ -74,76 +112,29 @@ Your app includes an admin API endpoint for migrations:
 curl https://your-app.vercel.app/api/admin/migrate
 
 # Run full setup (migrations + seeding)
-curl -X POST https://your-app.vercel.app/api/admin/migrate \
-  -H "Content-Type: application/json" \
-  -d '{"action": "setup"}' \
-  -H "Cookie: your-session-cookie"
+curl -X POST https://your-app.vercel.app/api/admin/migrate
 ```
 
-### Option 3: Manual Migration Commands
+## Performance Monitoring
 
-```bash
-# 1. Pull environment variables
-npx vercel env pull .env.production
+### Debug Performance Issues
 
-# 2. Apply migration files
-npx prisma migrate deploy
+After deployment, you can diagnose performance issues:
 
-# 3. Seed permissions system
-npx tsx src/lib/permissions/seed-permissions.ts
+1. **Access the debug page**: `https://your-app.vercel.app/debug`
+2. **Run performance tests** to identify bottlenecks
+3. **Compare dashboard APIs** to see which performs better
 
-# 4. Verify setup
-npx prisma studio
-```
+### Common Performance Issues
 
-## Migration Commands Reference
-
-| Command | Description |
-|---------|-------------|
-| `npm run db:migrate` | Apply migration files only |
-| `npm run db:seed` | Run permission seeding only |
-| `npm run db:setup` | Apply migrations + run seeding |
-| `npm run vercel:migrate` | Full Vercel-compatible migration |
-
-## Important: Migration vs Schema Push
-
-### ✅ **Use `prisma migrate deploy` when:**
-- You have migration files (which you do)
-- You want to track migration history
-- You're deploying to production
-- You want consistent schema changes
-
-### ❌ **Avoid `prisma db push` when:**
-- You have existing migration files
-- You're in production
-- You want to preserve migration history
-
-## Step-by-Step Production Deployment
-
-### 1. Initial Deployment
-```bash
-# Push to GitHub
-git push origin main
-
-# Vercel will auto-deploy
-```
-
-### 2. Database Setup
-```bash
-# After successful deployment, set up database
-vercel env pull .env.production
-npm run vercel:migrate
-```
-
-### 3. Verify Setup
-```bash
-# Check if everything is working
-curl https://your-app.vercel.app/api/admin/migrate
-```
+1. **Database Connection Slow**: Update DATABASE_URL with pooling parameters
+2. **Cold Starts**: Consider Vercel Pro for better performance
+3. **Query Performance**: Use the optimized dashboard API (`/api/dashboard/optimized`)
 
 ## Migration File Structure
 
 Your project has these migration files:
+
 ```
 prisma/migrations/
 ├── 20250807033743_baseline_with_enhanced_fields/
@@ -157,15 +148,16 @@ These will be automatically applied when you run `prisma migrate deploy`.
 
 ### Common Issues
 
-1. **Prisma Client Error**: Ensure `DATABASE_URL` is correctly set
+1. **Prisma Client Error**: Ensure `DATABASE_URL` is correctly set with pooling parameters
 2. **Build Failures**: Check that all environment variables are configured
 3. **Database Connection**: Verify database is accessible from Vercel
+4. **Slow Performance**: Use the debug tools at `/debug` to identify bottlenecks
 
 ### Environment Variables Check
 
 Make sure these are set in Vercel:
 
-- ✅ `DATABASE_URL`
+- ✅ `DATABASE_URL` (with connection pooling parameters)
 - ✅ `NEXTAUTH_SECRET`
 - ✅ `NEXTAUTH_URL`
 
@@ -174,6 +166,7 @@ Make sure these are set in Vercel:
 1. **Database Migration**: Run `npx prisma db push` to apply schema
 2. **Seed Data**: Optionally seed initial data
 3. **Test Application**: Verify all features work correctly
+4. **Performance Test**: Use the debug page to check performance
 
 ## Support
 
@@ -182,3 +175,4 @@ For issues with deployment, check:
 - Vercel build logs
 - Database connection
 - Environment variable configuration
+- Performance debug tools at `/debug`

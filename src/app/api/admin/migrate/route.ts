@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check authentication and authorization
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Authentication required" },
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const user = await prisma.user.findUnique({
       where: { email: session.user.email! },
-      select: { role: true }
+      select: { role: true },
     });
 
     if (!user || user.role !== "admin") {
@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Migration API error:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -61,22 +64,25 @@ export async function POST(request: NextRequest) {
 async function runMigrations() {
   try {
     console.log("🔄 Running database migrations...");
-    
+
     // Test database connection
     await prisma.$queryRaw`SELECT 1`;
-    
+
     console.log("✅ Database connection successful");
     console.log("✅ Migrations completed (Prisma client handles schema sync)");
-    
+
     return NextResponse.json({
       success: true,
       message: "Migrations completed successfully",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Migration error:", error);
     return NextResponse.json(
-      { error: "Migration failed", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Migration failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -85,20 +91,23 @@ async function runMigrations() {
 async function runSeeding() {
   try {
     console.log("🌱 Running database seeding...");
-    
+
     await seedPermissionSystem();
-    
+
     console.log("✅ Seeding completed successfully");
-    
+
     return NextResponse.json({
       success: true,
       message: "Database seeded successfully",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Seeding error:", error);
     return NextResponse.json(
-      { error: "Seeding failed", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Seeding failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -107,30 +116,33 @@ async function runSeeding() {
 async function runFullSetup() {
   try {
     console.log("🚀 Running full database setup...");
-    
+
     // Run migrations
     const migrateResult = await runMigrations();
     if (!migrateResult.ok) {
       throw new Error("Migration failed");
     }
-    
+
     // Run seeding
     const seedResult = await runSeeding();
     if (!seedResult.ok) {
       throw new Error("Seeding failed");
     }
-    
+
     console.log("✅ Full setup completed successfully");
-    
+
     return NextResponse.json({
       success: true,
       message: "Full database setup completed successfully",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Full setup error:", error);
     return NextResponse.json(
-      { error: "Full setup failed", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: "Full setup failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -143,27 +155,27 @@ export async function GET() {
   try {
     // Check database connection
     await prisma.$queryRaw`SELECT 1`;
-    
+
     // Check if permissions are seeded
     const permissionCount = await prisma.permission.count();
     const rolePermissionCount = await prisma.rolePermission.count();
-    
+
     return NextResponse.json({
       database: {
         connected: true,
         permissions: permissionCount,
         rolePermissions: rolePermissionCount,
-        isSeeded: permissionCount > 0 && rolePermissionCount > 0
+        isSeeded: permissionCount > 0 && rolePermissionCount > 0,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     return NextResponse.json({
       database: {
         connected: false,
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 }

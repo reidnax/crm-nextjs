@@ -101,4 +101,5 @@ temp/
 
 # Development files
 .git
-.gitignore 
+.gitignore
+.vercel 
