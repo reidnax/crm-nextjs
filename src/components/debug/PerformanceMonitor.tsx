@@ -164,15 +164,15 @@ export default function PerformanceMonitor() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
-                      performanceData.dbConnection.status === "success"
+                      performanceData.dbConnection?.status === "success"
                         ? "default"
                         : "destructive"
                     }
                   >
-                    {performanceData.dbConnection.status}
+                    {performanceData.dbConnection?.status || "N/A"}
                   </Badge>
                   <span className="text-sm text-gray-600">
-                    {performanceData.dbConnection.duration}ms
+                    {performanceData.dbConnection?.duration || 0}ms
                   </span>
                 </div>
               </div>
@@ -182,15 +182,15 @@ export default function PerformanceMonitor() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
-                      performanceData.simpleQuery.status === "success"
+                      performanceData.simpleQuery?.status === "success"
                         ? "default"
                         : "destructive"
                     }
                   >
-                    {performanceData.simpleQuery.status}
+                    {performanceData.simpleQuery?.status || "N/A"}
                   </Badge>
                   <span className="text-sm text-gray-600">
-                    {performanceData.simpleQuery.duration}ms
+                    {performanceData.simpleQuery?.duration || 0}ms
                   </span>
                 </div>
               </div>
@@ -200,15 +200,15 @@ export default function PerformanceMonitor() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
-                      performanceData.complexQueries.status === "success"
+                      performanceData.complexQueries?.status === "success"
                         ? "default"
                         : "destructive"
                     }
                   >
-                    {performanceData.complexQueries.status}
+                    {performanceData.complexQueries?.status || "N/A"}
                   </Badge>
                   <span className="text-sm text-gray-600">
-                    {performanceData.complexQueries.duration}ms
+                    {performanceData.complexQueries?.duration || 0}ms
                   </span>
                 </div>
               </div>
@@ -218,13 +218,13 @@ export default function PerformanceMonitor() {
                 <div className="flex items-center gap-2">
                   <Badge
                     className={
-                      getPerformanceStatus(performanceData.totalDuration).color
+                      getPerformanceStatus(performanceData.totalDuration || 0).color
                     }
                   >
-                    {getPerformanceStatus(performanceData.totalDuration).status}
+                    {getPerformanceStatus(performanceData.totalDuration || 0).status}
                   </Badge>
                   <span className="text-sm text-gray-600">
-                    {performanceData.totalDuration}ms
+                    {performanceData.totalDuration || 0}ms
                   </span>
                 </div>
               </div>
@@ -232,20 +232,20 @@ export default function PerformanceMonitor() {
               <div className="space-y-2">
                 <h4 className="font-medium">Memory Usage</h4>
                 <div className="text-sm text-gray-600">
-                  Heap: {performanceData.memoryUsage.heapUsed}MB /{" "}
-                  {performanceData.memoryUsage.heapTotal}MB
+                  Heap: {performanceData.memoryUsage?.heapUsed || 0}MB /{" "}
+                  {performanceData.memoryUsage?.heapTotal || 0}MB
                 </div>
               </div>
 
               <div className="space-y-2">
                 <h4 className="font-medium">Environment</h4>
                 <div className="text-sm text-gray-600">
-                  {performanceData.environment} ({performanceData.region})
+                  {performanceData.environment || "Unknown"} ({performanceData.region || "Unknown"})
                 </div>
               </div>
             </div>
 
-            {performanceData.recommendations.length > 0 && (
+            {performanceData.recommendations && performanceData.recommendations.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-medium">Recommendations</h4>
                 <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
