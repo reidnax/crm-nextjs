@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession, signOut } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
+import { useSessionWatcher } from "@/hooks/useSessionWatcher";
 import {
   Home,
   Users,
@@ -57,9 +58,13 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { session: watchedSession } = useSessionWatcher(); // Watch for session changes
   const { user, hasPermissions } = usePermissions();
 
-  if (!session) return null;
+  // Use the watched session if available, fallback to regular session
+  const currentSession = watchedSession || session;
+
+  if (!currentSession) return null;
 
   // Filter navigation based on user permissions
   const filteredNavigation = navigation.filter((item) => {

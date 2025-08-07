@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, memo } from "react";
+import { useSessionWatcher } from "@/hooks/useSessionWatcher";
 import Sidebar from "@/components/navigation/sidebar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -26,13 +27,18 @@ MemoizedChildren.displayName = "MemoizedChildren";
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const { data: session } = useSession();
+  const { session: watchedSession } = useSessionWatcher(); // Watch for session changes
   const pathname = usePathname();
+
+  // Use the watched session if available, fallback to regular session
+  const currentSession = watchedSession || session;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Don't show sidebar on login page or home page
-  const showSidebar = session && pathname !== "/login" && pathname !== "/";
+  const showSidebar =
+    currentSession && pathname !== "/login" && pathname !== "/";
 
   // Check if mobile
   useEffect(() => {
@@ -119,7 +125,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </Button>
 
                 <div className="text-sm text-gray-600 hidden sm:block">
-                  Welcome back, {session?.user?.name || "User"}
+                  Welcome back, {currentSession?.user?.name || "User"}
+                  {(currentSession?.user as { isImpersonated?: boolean })
+                    ?.isImpersonated && (
+                    <span className="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
+                      IMPERSONATED
+                    </span>
+                  )}
                 </div>
               </div>
             </header>

@@ -4,46 +4,36 @@ import { useSession } from "next-auth/react";
 import { useDevMode } from "@/contexts/DevModeContext";
 
 /**
- * Enhanced session hook that returns virtual user when in dev mode
- * This provides seamless switching between real and virtual users
+ * Enhanced session hook that returns impersonated user when in dev mode
+ * This provides seamless switching between real and impersonated users
  */
+interface ExtendedUser {
+  id?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  isImpersonated?: boolean;
+  realUserId?: string;
+  realUserRole?: string;
+}
+
 export function useVirtualSession() {
-  const { data: realSession, status, update } = useSession();
-  const { isDevMode, virtualUser, getEffectiveUser } = useDevMode();
+  const { data: session, status, update } = useSession();
+  const { selectedUser } = useDevMode();
 
-  // Return virtual session when in dev mode
-  if (isDevMode && virtualUser && realSession?.user?.role === "Admin-Dev") {
-    const virtualSession = {
-      ...realSession,
-      user: {
-        ...realSession.user,
-        id: virtualUser.id.toString(),
-        name: virtualUser.name,
-        email: virtualUser.email,
-        role: virtualUser.role,
-        department: virtualUser.department,
-        isVirtual: true,
-      },
-    };
+  // Check if we're currently impersonating a user
+  const user = session?.user as ExtendedUser;
+  const isImpersonated = user?.isImpersonated || false;
+  const realUserId = user?.realUserId || null;
 
-    return {
-      data: virtualSession,
-      status,
-      update,
-      isVirtual: true,
-      realUser: realSession.user,
-      virtualUser,
-    };
-  }
-
-  // Return real session when not in dev mode
   return {
-    data: realSession,
+    data: session,
     status,
     update,
-    isVirtual: false,
-    realUser: realSession?.user || null,
-    virtualUser: null,
+    isImpersonated,
+    impersonatedUser: isImpersonated ? session?.user : null,
+    realUserId,
+    selectedUser,
   };
 }
 
@@ -52,12 +42,13 @@ export function useVirtualSession() {
  */
 export function useEffectiveUserId(): number | null {
   const session = useVirtualSession();
+  const user = session.data?.user as ExtendedUser;
 
-  if (!session.data?.user?.id) {
+  if (!user?.id) {
     return null;
   }
 
-  return parseInt(session.data.user.id);
+  return parseInt(user.id);
 }
 
 /**
@@ -65,5 +56,6 @@ export function useEffectiveUserId(): number | null {
  */
 export function useEffectiveUserRole(): string | null {
   const session = useVirtualSession();
-  return session.data?.user?.role || null;
+  const user = session.data?.user as ExtendedUser;
+  return user?.role || null;
 }
