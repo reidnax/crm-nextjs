@@ -45,6 +45,8 @@ interface MigrationStatus {
   total: number;
   lastMigration: string | null;
   output: string;
+  statusAvailable?: boolean;
+  environment?: string;
 }
 
 interface MigrationData {
@@ -203,6 +205,17 @@ export default function AdminMigrationsPage() {
           <span>Admin Dev Only</span>
         </Badge>
       </div>
+
+      {/* Serverless Environment Warning */}
+      {migrationData?.status.environment === 'serverless' && !migrationData?.status.statusAvailable && (
+        <Alert className="border-yellow-200 bg-yellow-50">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800">
+            <strong>Serverless Environment Detected:</strong> Migration status commands are limited in serverless environments like Vercel. 
+            Migration deployment commands will still work normally. Use the "Deploy All Migrations" button to apply pending migrations.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Migration Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

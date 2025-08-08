@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
 
     // Get migration status (handle non-zero exit codes for pending migrations)
     let statusOutput = "";
+    let statusAvailable = true;
+    
     try {
       const { stdout } = await execAsync("npx prisma migrate status");
       statusOutput = stdout;
@@ -32,8 +34,12 @@ export async function GET(request: NextRequest) {
       // Prisma migrate status returns non-zero exit code when migrations are pending
       // This is expected behavior, so we use the stdout from the error
       statusOutput = error.stdout || "";
+      
       if (!error.stdout) {
-        throw error; // Re-throw if it's a real error
+        // If no stdout, might be Vercel/serverless limitation
+        console.warn("Migration status command failed, possibly due to serverless environment:", error.message);
+        statusAvailable = false;
+        statusOutput = "Migration status unavailable in serverless environment. Use deployment commands to apply migrations.";
       }
     }
 
@@ -42,9 +48,10 @@ export async function GET(request: NextRequest) {
     const migrationFolders = await fs.readdir(migrationsDir);
 
     // Check if there are pending migrations mentioned in the output
-    const hasPendingMigrations =
+    const hasPendingMigrations = statusAvailable && (
       statusOutput.includes("Following migration have not yet been applied") ||
-      statusOutput.includes("migration have not yet been applied");
+      statusOutput.includes("migration have not yet been applied")
+    );
 
     // Get list of pending migrations from status output
     const pendingMigrations = new Set<string>();
@@ -82,8 +89,9 @@ export async function GET(request: NextRequest) {
         }
 
         // Determine deployment status
-        const isDeployed = !pendingMigrations.has(folder);
-        const status = isDeployed ? 'deployed' : 'pending';
+        // If status is not available (serverless), assume all migrations are pending for safety
+        const isDeployed = statusAvailable ? !pendingMigrations.has(folder) : false;
+        const status = isDeployed ? 'deployed' : (statusAvailable ? 'pending' : 'unknown');
 
         migrations.push({
           name: folder,
@@ -118,6 +126,8 @@ export async function GET(request: NextRequest) {
         total: migrations.length,
         lastMigration: migrations[0]?.name || null,
         output: statusOutput,
+        statusAvailable,
+        environment: process.env.VERCEL ? 'serverless' : 'standard',
       },
       migrations,
       totalMigrations: migrations.length,
