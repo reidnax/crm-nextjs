@@ -3,10 +3,18 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { processLeadData } from "@/lib/lead-data-processor";
+import {
+  processLeadData,
+  processLeadDataPartial,
+  processSingleFieldUpdate,
+} from "@/lib/lead-data-processor";
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
-import { validateLeadData } from "@/lib/validations/lead-validation";
+import {
+  validateLeadData,
+  validateLeadDataPartial,
+  validateSingleFieldUpdate,
+} from "@/lib/validations/lead-validation";
 
 // Helper function to check if user can access a specific lead
 async function canAccessLead(
@@ -186,7 +194,7 @@ export async function PUT(
       return errorResponse("Lead not found", 404);
     }
 
-    // Comprehensive validation using Zod
+    // Comprehensive validation using Zod (PUT expects complete data)
     const validationResult = validateLeadData(body);
 
     if (!validationResult.success) {
@@ -233,6 +241,135 @@ export async function PUT(
     return successResponse(updatedLead, "Lead updated successfully");
   } catch (error) {
     console.error("Error updating lead:", error);
+    return errorResponse("Failed to update lead");
+  }
+}
+
+// PATCH /api/leads/[id] - Partial update of a specific lead (for dropdowns, single field updates)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return errorResponse("Unauthorized", 401);
+    }
+
+    const resolvedParams = await params;
+    const leadId = parseInt(resolvedParams.id);
+    if (isNaN(leadId)) {
+      return errorResponse("Invalid lead ID", 400);
+    }
+
+    // Get effective user (supports user impersonation)
+    const { userId } = await getEffectiveUserForPermissions(session);
+
+    // Check if user can update this lead
+    const canUpdate = await canAccessLead(userId, leadId, "update");
+    if (!canUpdate) {
+      return errorResponse(
+        "Forbidden: You don't have permission to update this lead",
+        403
+      );
+    }
+
+    const body = await request.json();
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!existingLead) {
+      return errorResponse("Lead not found", 404);
+    }
+
+    // Detect if this is a single-field update
+    const bodyKeys = Object.keys(body);
+    const isSingleFieldUpdate = bodyKeys.length === 1;
+
+    let validationResult;
+    let processedData;
+
+    if (isSingleFieldUpdate) {
+      // For single-field updates, use field-specific validation
+      const field = bodyKeys[0];
+      const value = body[field];
+
+      validationResult = validateSingleFieldUpdate(field, value);
+
+      if (!validationResult.success) {
+        const validationErrors: Record<string, string> = {};
+        validationResult.error.errors.forEach((error) => {
+          const fieldPath = error.path.join(".");
+          if (!validationErrors[fieldPath]) {
+            validationErrors[fieldPath] = error.message;
+          }
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Validation failed",
+            validationErrors,
+            details: validationResult.error.errors,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // For single field updates, use minimal processing
+      processedData = processSingleFieldUpdate(field, value);
+    } else {
+      // For multi-field updates, use regular partial validation
+      validationResult = validateLeadDataPartial(body);
+
+      if (!validationResult.success) {
+        const validationErrors: Record<string, string> = {};
+        validationResult.error.errors.forEach((error) => {
+          const fieldPath = error.path.join(".");
+          if (!validationErrors[fieldPath]) {
+            validationErrors[fieldPath] = error.message;
+          }
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Validation failed",
+            validationErrors,
+            details: validationResult.error.errors,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      processedData = processLeadDataPartial(validationResult.data);
+    }
+
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: processedData,
+      include: {
+        creator: {
+          select: { id: true, name: true, username: true },
+        },
+        assignee: {
+          select: { id: true, name: true, username: true },
+        },
+      },
+    });
+
+    return successResponse(updatedLead, "Lead updated successfully");
+  } catch (error) {
+    console.error("Error partially updating lead:", error);
     return errorResponse("Failed to update lead");
   }
 }

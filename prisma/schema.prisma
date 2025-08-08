@@ -38,6 +38,7 @@ model User {
   assignedLeads   Lead[]    @relation("UserAssignedLeads")
   createdMeetings Meeting[] @relation("UserCreatedMeetings")
   createdTasks    Task[]    @relation("UserCreatedTasks")
+  assignedTasks   Task[]    @relation("UserAssignedTasks")
   createdNotes    Note[]    @relation("UserCreatedNotes")
 
   // RBAC relations
@@ -47,6 +48,7 @@ model User {
   auditLogs       PermissionAuditLog[] @relation("AuditUser")
   grantedAudits   PermissionAuditLog[] @relation("AuditGrantedBy")
   ownedResources  ResourceOwnership[]
+  migrationLogs   MigrationLog[]       @relation("UserMigrationLogs")
 
   @@map("Users")
 }
@@ -99,6 +101,7 @@ model Lead {
   @@index([priority])
   @@index([assign])
   @@index([createdAt])
+  @@index([name]) // For search functionality
   @@map("Leads")
 }
 
@@ -158,13 +161,28 @@ model Task {
   updatedAt      DateTime  @updatedAt @map("updatedAt")
 
   // Relations
-  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  creator User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+  lead     Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator  User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+  assignee User? @relation("UserAssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
 
   @@index([dueDate])
   @@index([status])
   @@index([priority])
   @@index([leadId])
+  @@index([assignedTo])
+  @@index([createdBy])
+  @@index([completedAt])
+  @@index([category])
+  // Text search indexes
+  @@index([subject])
+  // Composite indexes for common query patterns
+  @@index([status, dueDate])
+  @@index([leadId, status])
+  @@index([assignedTo, status])
+  @@index([createdBy, status])
+  @@index([status, dueDate, leadId]) // For overdue queries
+  @@index([status, priority]) // For filtered listings
+  @@index([category, status]) // For category filtering
   @@map("Tasks")
 }
 
@@ -282,4 +300,28 @@ model ResourceOwnership {
   @@index([resourceType, resourceId])
   @@index([ownerId])
   @@map("ResourceOwnerships")
+}
+
+model MigrationLog {
+  id           Int      @id @default(autoincrement())
+  action       String   // 'deploy', 'deploy-selective', 'deploy-to-production', 'status', 'generate', 'reset'
+  description  String   // Human-readable description
+  command      String   // Actual command executed
+  migrationName String? // Specific migration name (for selective deployments)
+  targetDatabase String? // Target database URL (for production deployments)
+  output       String?  // Command output
+  error        String?  // Error output (if any)
+  success      Boolean  // Whether the operation was successful
+  duration     Int      // Execution time in milliseconds
+  executedBy   Int      // User who executed the migration
+  executedAt   DateTime @default(now()) @map("createdAt")
+
+  // Relations
+  user User @relation("UserMigrationLogs", fields: [executedBy], references: [id], onDelete: Cascade)
+
+  @@index([action])
+  @@index([executedBy])
+  @@index([executedAt])
+  @@index([success])
+  @@map("MigrationLogs")
 }

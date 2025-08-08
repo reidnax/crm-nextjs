@@ -358,7 +358,13 @@ export const leadValidationSchema = z.object({
     ),
 
   dealer: dealerSchema.optional().default({}),
-  socialMedia: socialMediaSchema.optional().default({}),
+  socialMedia: socialMediaSchema.optional().default({
+    linkedin: "",
+    twitter: "",
+    facebook: "",
+    instagram: "",
+    website: "",
+  }),
 
   // Date fields
   lastContactDate: z
@@ -442,6 +448,149 @@ export interface LeadInitialData {
 // Validation helper functions
 export const validateLeadData = (data: unknown) => {
   return leadValidationSchema.safeParse(data);
+};
+
+// Partial validation schema for single field updates (dropdowns, inline edits)
+export const leadPartialValidationSchema = leadValidationSchema.partial();
+
+export const validateLeadDataPartial = (data: unknown) => {
+  return leadPartialValidationSchema.safeParse(data);
+};
+
+// Simple field validation for single-field PATCH requests (avoids transforms/defaults)
+export const validateSingleFieldUpdate = (field: string, value: any) => {
+  // Define allowed fields for updates
+  const allowedFields = [
+    "name",
+    "email",
+    "phone",
+    "alternatePhone",
+    "company",
+    "businessCategory",
+    "businessIndustry",
+    "status",
+    "subStatus",
+    "convertedStatus",
+    "priority",
+    "state",
+    "city",
+    "address",
+    "pincode",
+    "website",
+    "description",
+    "designation",
+    "annualRevenue",
+    "investmentLimit",
+    "source",
+    "tags",
+    "dealer",
+    "socialMedia",
+    "lastContactDate",
+    "nextFollowUpDate",
+    "leadScore",
+    "assign",
+    "isArchived",
+    "customFields",
+  ];
+
+  if (!allowedFields.includes(field)) {
+    return {
+      success: false,
+      error: {
+        errors: [
+          {
+            path: [field],
+            message: `Field '${field}' is not allowed to be updated`,
+          },
+        ],
+      },
+    };
+  }
+
+  // Basic validation without transforms
+  if (
+    field === "name" &&
+    (!value || typeof value !== "string" || value.trim().length < 1)
+  ) {
+    return {
+      success: false,
+      error: {
+        errors: [
+          {
+            path: [field],
+            message: "Name is required",
+          },
+        ],
+      },
+    };
+  }
+
+  if (
+    field === "email" &&
+    value &&
+    typeof value === "string" &&
+    value.trim() !== ""
+  ) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return {
+        success: false,
+        error: {
+          errors: [
+            {
+              path: [field],
+              message: "Please enter a valid email address",
+            },
+          ],
+        },
+      };
+    }
+  }
+
+  if (
+    (field === "phone" || field === "alternatePhone") &&
+    value &&
+    typeof value === "string" &&
+    value.trim() !== ""
+  ) {
+    const phoneRegex = /^[\+]?[(]?[\d\s\-\+\(\)]{10,15}$/;
+    if (!phoneRegex.test(value.replace(/\s/g, ""))) {
+      return {
+        success: false,
+        error: {
+          errors: [
+            {
+              path: [field],
+              message: "Please enter a valid phone number (10-15 digits)",
+            },
+          ],
+        },
+      };
+    }
+  }
+
+  if (field === "leadScore") {
+    const score = typeof value === "string" ? parseFloat(value) : value;
+    if (typeof score !== "number" || score < 0 || score > 100) {
+      return {
+        success: false,
+        error: {
+          errors: [
+            {
+              path: [field],
+              message: "Lead score must be between 0 and 100",
+            },
+          ],
+        },
+      };
+    }
+  }
+
+  // Return the value as-is without transforms
+  return {
+    success: true,
+    data: { [field]: value },
+  };
 };
 
 export const getFieldError = (

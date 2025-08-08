@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const statuses = searchParams.getAll("status");
     const subStatuses = searchParams.getAll("subStatus");
+    const priorities = searchParams.getAll("priority");
     const assigneeNames = searchParams.getAll("assignee");
     const businessCategories = searchParams.getAll("businessCategory");
     const businessIndustries = searchParams.getAll("businessIndustry");
@@ -39,7 +40,9 @@ export async function GET(request: NextRequest) {
 
     if (isVirtual) {
       console.log(
-        `Using impersonated user: ${userRole} (ID: ${userId}) for Admin-Dev ${session?.user?.id}`
+        `Using impersonated user: ${userRole} (ID: ${userId}) for Admin-Dev ${
+          session?.user?.id ?? "unknown"
+        }`
       );
     }
 
@@ -118,6 +121,7 @@ export async function GET(request: NextRequest) {
         { state: { contains: search, mode: "insensitive" } },
         { businessCategory: { contains: search, mode: "insensitive" } },
         { businessIndustry: { contains: search, mode: "insensitive" } },
+        { assignee: { name: { contains: search, mode: "insensitive" } } },
       ];
 
       if (where.OR) {
@@ -136,6 +140,10 @@ export async function GET(request: NextRequest) {
 
     if (subStatuses.length > 0) {
       where.subStatus = { in: subStatuses };
+    }
+
+    if (priorities.length > 0) {
+      where.priority = { in: priorities };
     }
 
     if (businessCategories.length > 0) {
@@ -253,7 +261,7 @@ export async function POST(request: NextRequest) {
       // Extract field-specific errors for the frontend
       const validationErrors: Record<string, string> = {};
 
-      validationResult.error.errors.forEach((error) => {
+      validationResult.error.issues.forEach((error) => {
         const fieldPath = error.path.join(".");
         if (!validationErrors[fieldPath]) {
           validationErrors[fieldPath] = error.message;
@@ -265,7 +273,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Validation failed",
           validationErrors,
-          details: validationResult.error.errors,
+          details: validationResult.error.issues,
         }),
         {
           status: 400,
@@ -279,6 +287,7 @@ export async function POST(request: NextRequest) {
 
     const lead = await prisma.lead.create({
       data: {
+        name: processedData.name,
         ...processedData,
         createdBy: userId,
       },

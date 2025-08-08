@@ -42,7 +42,7 @@ function PaginationComponent({
   onPageSizeChange,
   className,
   showPageSizeSelector = true,
-  pageSizeOptions = [5, 10, 20, 50, 100],
+  pageSizeOptions = [5, 10, 15, 20, 50, 100],
 }: PaginationProps) {
   const {
     currentPage,
@@ -213,8 +213,11 @@ const Pagination = memo(PaginationComponent);
 export default Pagination;
 
 // Helper hook for pagination state management
-export function usePagination(initialPageSize: number = 10) {
-  const [currentPage, setCurrentPage] = useState(1);
+export function usePagination(
+  initialPageSize: number = 10,
+  initialPage: number = 1
+) {
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(initialPageSize);
 
   const handlePageChange = useCallback((page: number) => {
