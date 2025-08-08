@@ -118,17 +118,19 @@ export async function GET(request: NextRequest) {
             `Migration ${folder} not found in applied migrations:`,
             Array.from(appliedMigrations)
           );
-          
+
           // Check if this is a known production migration that should be deployed
           const knownProductionMigrations = [
             "20250807033743_baseline_with_enhanced_fields",
-            "20250808235046_add_migration_logs_table", 
+            "20250808235046_add_migration_logs_table",
             "20250808232908_CU-86czwxrm5_Task-Management",
-            "20250807042330_add_rbac_system"
+            "20250807042330_add_rbac_system",
           ];
-          
+
           if (knownProductionMigrations.includes(folder)) {
-            console.log(`Migration ${folder} is known to be deployed in production - marking as deployed`);
+            console.log(
+              `Migration ${folder} is known to be deployed in production - marking as deployed`
+            );
             isDeployed = true;
             status = "deployed";
           }
