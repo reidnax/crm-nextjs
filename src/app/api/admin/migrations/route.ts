@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { MigrationService } from "@/lib/migration-service";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
@@ -107,6 +108,9 @@ export async function GET(request: NextRequest) {
     const pendingCount = migrations.filter(m => !m.isDeployed).length;
     const totalMigrations = migrations.length;
 
+    // Get recent migration logs
+    const recentLogs = await MigrationService.getRecentMigrationLogs();
+
     return successResponse({
       status: {
         applied: appliedCount,
@@ -117,6 +121,7 @@ export async function GET(request: NextRequest) {
       },
       migrations,
       totalMigrations: migrations.length,
+      recentLogs: recentLogs.logs,
     });
   } catch (error) {
     console.error("Error getting migration status:", error);
@@ -207,15 +212,41 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Migration command completed in ${duration}ms`);
 
-    // Log the migration execution
-    const logEntry = {
+    // Log the migration execution to database
+    const success = !stderr || stderr.trim() === "";
+    
+    await MigrationService.logMigration({
+      action,
+      description,
+      command,
+      migrationName: migrationName || null,
+      targetDatabase: targetDatabase || null,
+      output: stdout,
+      error: stderr || null,
+      success,
+      duration,
+      executedBy: session.user?.id || 0,
+    });
+
+    // Log to console for server logs
+    console.log("🔄 Migration Execution Log:", {
+      action,
+      description,
+      command,
+      duration,
+      success,
+      executedBy: session.user?.name,
+      executedAt: new Date().toISOString(),
+    });
+
+    return successResponse({
       action,
       description,
       command,
       duration,
       output: stdout,
       error: stderr || null,
-      success: !stderr || stderr.trim() === "",
+      success,
       executedBy: {
         id: session.user?.id,
         name: session.user?.name,
@@ -224,12 +255,7 @@ export async function POST(request: NextRequest) {
       executedAt: new Date().toISOString(),
       migrationName: migrationName || null,
       targetDatabase: targetDatabase ? "production" : "development",
-    };
-
-    // Log to console for server logs
-    console.log("🔄 Migration Execution Log:", JSON.stringify(logEntry, null, 2));
-
-    return successResponse(logEntry);
+    });
   } catch (error: any) {
     console.error("Error executing migration command:", error);
     return errorResponse(`Migration failed: ${error.message}`, 500);

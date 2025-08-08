@@ -48,6 +48,7 @@ model User {
   auditLogs       PermissionAuditLog[] @relation("AuditUser")
   grantedAudits   PermissionAuditLog[] @relation("AuditGrantedBy")
   ownedResources  ResourceOwnership[]
+  migrationLogs   MigrationLog[]       @relation("UserMigrationLogs")
 
   @@map("Users")
 }
@@ -299,4 +300,28 @@ model ResourceOwnership {
   @@index([resourceType, resourceId])
   @@index([ownerId])
   @@map("ResourceOwnerships")
+}
+
+model MigrationLog {
+  id           Int      @id @default(autoincrement())
+  action       String   // 'deploy', 'deploy-selective', 'deploy-to-production', 'status', 'generate', 'reset'
+  description  String   // Human-readable description
+  command      String   // Actual command executed
+  migrationName String? // Specific migration name (for selective deployments)
+  targetDatabase String? // Target database URL (for production deployments)
+  output       String?  // Command output
+  error        String?  // Error output (if any)
+  success      Boolean  // Whether the operation was successful
+  duration     Int      // Execution time in milliseconds
+  executedBy   Int      // User who executed the migration
+  executedAt   DateTime @default(now()) @map("createdAt")
+
+  // Relations
+  user User @relation("UserMigrationLogs", fields: [executedBy], references: [id], onDelete: Cascade)
+
+  @@index([action])
+  @@index([executedBy])
+  @@index([executedAt])
+  @@index([success])
+  @@map("MigrationLogs")
 }

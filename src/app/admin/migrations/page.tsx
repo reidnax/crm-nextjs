@@ -67,6 +67,7 @@ export default function AdminMigrationsPage() {
   const [deploymentLogs, setDeploymentLogs] = useState<any[]>([]);
   const [productionDbUrl, setProductionDbUrl] = useState("");
   const [showProductionDeploy, setShowProductionDeploy] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   // Check if user is Admin Dev
   const isAdminDev =
@@ -91,6 +92,10 @@ export default function AdminMigrationsPage() {
 
       if (result.success) {
         setMigrationData(result.data);
+        // Update deployment logs from the response
+        if (result.data.recentLogs) {
+          setDeploymentLogs(result.data.recentLogs);
+        }
       } else {
         toast.error("Failed to fetch migration data");
       }
@@ -99,6 +104,25 @@ export default function AdminMigrationsPage() {
       toast.error("Failed to fetch migration data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMigrationLogs = async () => {
+    try {
+      setLogsLoading(true);
+      const response = await fetch("/api/admin/migrations/logs?limit=100");
+      const result = await response.json();
+
+      if (result.success) {
+        setDeploymentLogs(result.data.logs);
+      } else {
+        toast.error("Failed to fetch migration logs");
+      }
+    } catch (error) {
+      console.error("Error fetching migration logs:", error);
+      toast.error("Failed to fetch migration logs");
+    } finally {
+      setLogsLoading(false);
     }
   };
 
@@ -120,11 +144,9 @@ export default function AdminMigrationsPage() {
       if (result.success) {
         toast.success(`${result.data.description} completed successfully`);
         
-        // Add to deployment logs
-        setDeploymentLogs(prev => [result.data, ...prev]);
-        
-        // Refresh migration data after successful execution
+        // Refresh migration data and logs after successful execution
         await fetchMigrationData();
+        await fetchMigrationLogs();
       } else {
         toast.error(`Migration failed: ${result.error}`);
       }
@@ -455,16 +477,36 @@ export default function AdminMigrationsPage() {
         <TabsContent value="logs">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Terminal className="h-5 w-5" />
-                <span>Deployment Logs</span>
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Terminal className="h-5 w-5" />
+                  <span>Deployment Logs</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchMigrationLogs}
+                  disabled={logsLoading}
+                >
+                  {logsLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refresh Logs
+                </Button>
+              </div>
               <CardDescription>
-                Real-time deployment logs and execution history
+                Persistent deployment logs and execution history stored in database
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {deploymentLogs.length === 0 ? (
+              {logsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 mx-auto animate-spin" />
+                  <p className="mt-2">Loading migration logs...</p>
+                </div>
+              ) : deploymentLogs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Terminal className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No deployment logs yet</p>
@@ -473,7 +515,7 @@ export default function AdminMigrationsPage() {
               ) : (
                 <div className="space-y-4">
                   {deploymentLogs.map((log, index) => (
-                    <div key={index} className="border rounded-lg p-4">
+                    <div key={log.id || index} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Badge variant={log.success ? "default" : "destructive"}>
@@ -489,7 +531,7 @@ export default function AdminMigrationsPage() {
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground mb-2">
-                        Executed by: {log.executedBy.name} ({log.executedBy.role}) • Duration: {log.duration}ms
+                        Executed by: {log.user?.name || 'Unknown'} ({log.user?.role || 'Unknown'}) • Duration: {log.duration}ms
                       </div>
                       {log.output && (
                         <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto max-h-40">
