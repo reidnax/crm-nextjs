@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { MigrationService } from "@/lib/migration-service";
+import { prisma } from "@/lib/prisma";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
@@ -35,8 +36,13 @@ export async function GET(request: NextRequest) {
       `;
       
       appliedMigrations = new Set(
-        appliedMigrationsResult.map(row => row.migration_name)
+        appliedMigrationsResult.map((row: { migration_name: string }) => row.migration_name)
       );
+      
+      // Debug logging to help identify matching issues
+      console.log("Applied migrations from database:", Array.from(appliedMigrations));
+      console.log("Total migrations found in database:", appliedMigrationsResult.length);
+      console.log("Current DATABASE_URL:", process.env.DATABASE_URL?.substring(0, 50) + "...");
       
       statusOutput = `Database migration status checked directly from _prisma_migrations table.\nApplied migrations: ${appliedMigrations.size}`;
       statusAvailable = true;
@@ -84,8 +90,14 @@ export async function GET(request: NextRequest) {
         }
 
         // Determine deployment status based on database query
+        // Use exact string matching (case-sensitive)
         const isDeployed = appliedMigrations.has(folder);
         const status = isDeployed ? "deployed" : "pending";
+        
+        // Debug logging for troubleshooting
+        if (!isDeployed) {
+          console.log(`Migration ${folder} not found in applied migrations:`, Array.from(appliedMigrations));
+        }
 
         migrations.push({
           name: folder,
