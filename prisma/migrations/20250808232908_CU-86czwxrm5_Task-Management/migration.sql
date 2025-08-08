@@ -46,6 +46,12 @@ BEGIN
         RAISE NOTICE 'Added column: Tasks.reminderDate';
     END IF;
     
+    -- Add assignedTo field for task assignment
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Tasks' AND column_name = 'assignedTo') THEN
+        ALTER TABLE "Tasks" ADD COLUMN "assignedTo" INTEGER;
+        RAISE NOTICE 'Added column: Tasks.assignedTo';
+    END IF;
+    
     RAISE NOTICE 'Tasks table enhancement completed successfully';
 END $$;
 
@@ -111,6 +117,20 @@ BEGIN
     END IF;
 END $$;
 
+-- Add foreign key constraint for Tasks.assignedTo (for task assignment)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'Tasks_assignedTo_fkey' 
+        AND table_name = 'Tasks'
+    ) THEN
+        ALTER TABLE "Tasks" ADD CONSTRAINT "Tasks_assignedTo_fkey" 
+        FOREIGN KEY ("assignedTo") REFERENCES "Users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        RAISE NOTICE 'Added foreign key constraint: Tasks_assignedTo_fkey';
+    END IF;
+END $$;
+
 -- Summary message
 DO $$
 BEGIN
@@ -121,6 +141,7 @@ BEGIN
     RAISE NOTICE '   - Task completion timestamps';
     RAISE NOTICE '   - Tag-based organization';
     RAISE NOTICE '   - Recurring task support';
+    RAISE NOTICE '   - Task assignment functionality';
     RAISE NOTICE '   - Reminder functionality';
     RAISE NOTICE '   - Performance-optimized indexes';
     RAISE NOTICE '🚀 Ready for production deployment!';
