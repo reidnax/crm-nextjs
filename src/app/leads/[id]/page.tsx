@@ -27,12 +27,18 @@ import {
   PinIcon,
   MapPin,
   User,
+  CheckSquare,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { formatDate } from "@/lib/utils";
 
 import TaskList from "@/components/tasks/TaskList";
+import LeadMeetings from "@/components/meetings/LeadMeetings";
 // LeadScoreInput is used in the LeadHeaderCompact component
 import LeadDetailHeader from "@/components/leads/LeadDetailHeader";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
 interface DealerData {
   evBusiness?: string;
@@ -200,6 +206,10 @@ function LeadDetailPageContent() {
   // Task editing states
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
+  const [deleteTaskDialog, setDeleteTaskDialog] = useState<{
+    isOpen: boolean;
+    task?: Task;
+  }>({ isOpen: false });
 
   // Simple states
   const [isFavorited, setIsFavorited] = useState(false);
@@ -312,6 +322,8 @@ function LeadDetailPageContent() {
   );
 
   // Task management functions
+
+  // Task management functions
   const handleToggleTaskCompletion = async (task: Task) => {
     try {
       const newStatus = task.status === "Completed" ? "Pending" : "Completed";
@@ -351,24 +363,37 @@ function LeadDetailPageContent() {
     setIsEditTaskDialogOpen(true);
   };
 
-  const handleDeleteTask = async (task: Task) => {
-    if (!confirm("Are you sure you want to delete this task?")) return;
+  const handleDeleteTask = (task: Task) => {
+    setDeleteTaskDialog({ isOpen: true, task });
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!deleteTaskDialog.task) return;
 
     try {
-      const response = await fetch(`/api/leads/${leadId}/tasks/${task.id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/leads/${leadId}/tasks/${deleteTaskDialog.task.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const result = await response.json();
 
       if (result.success) {
         // Remove task from local state
-        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        setTasks((prev) =>
+          prev.filter((t) => t.id !== deleteTaskDialog.task!.id)
+        );
+        toast.success("Task deleted successfully");
+        setDeleteTaskDialog({ isOpen: false });
       } else {
         console.error("Failed to delete task:", result.error);
+        toast.error("Failed to delete task");
       }
     } catch (error) {
       console.error("Error deleting task:", error);
+      toast.error("Failed to delete task");
     }
   };
 
@@ -376,6 +401,17 @@ function LeadDetailPageContent() {
     setIsEditTaskDialogOpen(false);
     setEditingTask(null);
   };
+
+  const handleTaskCreateSuccess = useCallback(() => {
+    setIsTaskDialogOpen(false);
+    fetchLeadDetails();
+  }, [fetchLeadDetails]);
+
+  const handleTaskEditSuccess = useCallback(() => {
+    setIsEditTaskDialogOpen(false);
+    setEditingTask(null);
+    fetchLeadDetails();
+  }, [fetchLeadDetails]);
 
   const refreshLeadDetailsWithCacheBusting = useCallback(async () => {
     // Refresh the lead details with cache busting to ensure we get updated data
@@ -397,20 +433,6 @@ function LeadDetailPageContent() {
       fetchLeadDetails();
     }
   }, [leadId, fetchLeadDetails]);
-
-  const handleTaskEditSuccess = useCallback(async () => {
-    // First close the dialog
-    handleCloseEditTaskDialog();
-    // Then refresh the data
-    await refreshLeadDetailsWithCacheBusting();
-  }, [refreshLeadDetailsWithCacheBusting]);
-
-  const handleTaskCreateSuccess = useCallback(async () => {
-    // First close the dialog
-    setIsTaskDialogOpen(false);
-    // Then refresh the data
-    await refreshLeadDetailsWithCacheBusting();
-  }, [refreshLeadDetailsWithCacheBusting]);
 
   useEffect(() => {
     if (session && leadId) {
@@ -636,9 +658,7 @@ function LeadDetailPageContent() {
                                 Last Contact
                               </label>
                               <p className="text-gray-900">
-                                {new Date(
-                                  lead.lastContactDate
-                                ).toLocaleDateString()}
+                                {formatDate(lead.lastContactDate)}
                               </p>
                             </div>
                           )}
@@ -648,9 +668,7 @@ function LeadDetailPageContent() {
                                 Next Follow-up
                               </label>
                               <p className="text-gray-900">
-                                {new Date(
-                                  lead.nextFollowUpDate
-                                ).toLocaleDateString()}
+                                {formatDate(lead.nextFollowUpDate)}
                               </p>
                             </div>
                           )}
@@ -859,6 +877,7 @@ function LeadDetailPageContent() {
                           {meetings.length}
                         </span>
                       </div>
+
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-500">
                           Open Tasks
@@ -919,14 +938,8 @@ function LeadDetailPageContent() {
                       </div>
 
                       <div className="text-xs text-gray-500 space-y-1">
-                        <div>
-                          Created:{" "}
-                          {new Date(lead.createdAt).toLocaleDateString()}
-                        </div>
-                        <div>
-                          Updated:{" "}
-                          {new Date(lead.updatedAt).toLocaleDateString()}
-                        </div>
+                        <div>Created: {formatDate(lead.createdAt)}</div>
+                        <div>Updated: {formatDate(lead.updatedAt)}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -936,139 +949,73 @@ function LeadDetailPageContent() {
 
             {/* Meetings Tab */}
             <TabsContent value="meetings" className="space-y-4 md:space-y-6">
-              <Card className="shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-lg">Meetings</CardTitle>
-                      <CardDescription className="text-sm">
-                        All meetings related to this lead
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={() => setIsMeetingDialogOpen(true)}
-                      size="sm"
-                      className="w-full sm:w-auto"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span className="hidden sm:inline">Schedule Meeting</span>
-                      <span className="sm:hidden">Schedule</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {meetings.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Calendar className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                      <p>No meetings scheduled</p>
-                      <Button
-                        variant="outline"
-                        className="mt-4"
-                        onClick={() => setIsMeetingDialogOpen(true)}
-                        size="sm"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Schedule First Meeting
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {meetings.map((meeting) => (
-                        <div
-                          key={meeting.id}
-                          className="border rounded-lg p-4 hover:shadow-sm transition-shadow"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">
-                                {meeting.subject}
-                              </h3>
-                              {meeting.description && (
-                                <p className="text-gray-600 text-sm mt-1">
-                                  {meeting.description}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-4 w-4" />
-                                  {new Date(
-                                    meeting.startTime
-                                  ).toLocaleDateString()}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-4 w-4" />
-                                  {new Date(
-                                    meeting.startTime
-                                  ).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                  {" - "}
-                                  {new Date(meeting.endTime).toLocaleTimeString(
-                                    [],
-                                    { hour: "2-digit", minute: "2-digit" }
-                                  )}
-                                </div>
-                                {meeting.location && (
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-4 w-4" />
-                                    {meeting.location}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {meeting.status && (
-                                <Badge
-                                  variant={
-                                    meeting.status === "Completed"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {meeting.status}
-                                </Badge>
-                              )}
-                              {meeting.type && (
-                                <Badge variant="outline">{meeting.type}</Badge>
-                              )}
-                            </div>
-                          </div>
-                          {meeting.creator && (
-                            <div className="flex items-center gap-2 mt-3 pt-3 border-t text-sm text-gray-500">
-                              <User className="h-4 w-4" />
-                              Created by {meeting.creator.name}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {lead && (
+                <LeadMeetings
+                  leadId={parseInt(leadId)}
+                  leadName={lead.name}
+                  leadCompany={lead.company}
+                  className="shadow-sm"
+                />
+              )}
             </TabsContent>
 
             {/* Tasks Tab */}
             <TabsContent value="tasks" className="space-y-4 md:space-y-6">
               <Card className="shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-lg">Tasks</CardTitle>
-                      <CardDescription className="text-sm">
-                        All tasks related to this lead
-                      </CardDescription>
-                    </div>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckSquare className="h-5 w-5" />
+                      Tasks ({tasks.length})
+                    </CardTitle>
                     <Button
                       onClick={() => setIsTaskDialogOpen(true)}
                       size="sm"
-                      className="w-full sm:w-auto"
+                      className="flex items-center gap-2"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span className="hidden sm:inline">Add Task</span>
-                      <span className="sm:hidden">Add</span>
+                      <Plus className="h-4 w-4" />
+                      Add Task
                     </Button>
                   </div>
+
+                  {/* Quick Stats */}
+                  {tasks.length > 0 && (
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>
+                          {tasks.filter((t) => t.status === "Completed").length}{" "}
+                          completed
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        <span>
+                          {tasks.filter((t) => t.status === "Pending").length}{" "}
+                          pending
+                        </span>
+                      </div>
+                      {tasks.filter(
+                        (t) =>
+                          new Date(t.dueDate) < new Date() &&
+                          t.status !== "Completed"
+                      ).length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <span>
+                            {
+                              tasks.filter(
+                                (t) =>
+                                  new Date(t.dueDate) < new Date() &&
+                                  t.status !== "Completed"
+                              ).length
+                            }{" "}
+                            overdue
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <TaskList
@@ -1161,9 +1108,7 @@ function LeadDetailPageContent() {
                               <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-4 w-4" />
-                                  {new Date(
-                                    note.createdAt
-                                  ).toLocaleDateString()}
+                                  {formatDate(note.createdAt)}
                                 </div>
                                 {note.type && note.type !== "General" && (
                                   <Badge variant="outline" className="text-xs">
@@ -1209,8 +1154,13 @@ function LeadDetailPageContent() {
       <MeetingDialog
         isOpen={isMeetingDialogOpen}
         onClose={() => setIsMeetingDialogOpen(false)}
-        onSuccess={fetchLeadDetails}
-        leadId={leadId}
+        onMeetingCreated={() => {
+          fetchLeadDetails();
+        }}
+        onMeetingUpdated={() => {
+          fetchLeadDetails();
+        }}
+        leadId={parseInt(leadId)}
       />
 
       <TaskDialog
@@ -1218,6 +1168,13 @@ function LeadDetailPageContent() {
         onClose={() => setIsTaskDialogOpen(false)}
         onSuccess={handleTaskCreateSuccess}
         leadId={leadId}
+        initialData={
+          lead?.assignee
+            ? {
+                assignedTo: lead.assignee.id,
+              }
+            : undefined
+        }
       />
 
       <NoteDialog
@@ -1261,6 +1218,18 @@ function LeadDetailPageContent() {
             : undefined
         }
         showStatusField={true}
+      />
+
+      <DeleteConfirmationDialog
+        open={deleteTaskDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteTaskDialog({ isOpen: false })}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        description={
+          deleteTaskDialog.task
+            ? `Are you sure you want to delete "${deleteTaskDialog.task.subject}"? This action cannot be undone.`
+            : ""
+        }
       />
     </div>
   );

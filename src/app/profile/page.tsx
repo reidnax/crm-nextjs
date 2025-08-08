@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ProfileEditForm from "@/components/forms/profile-edit-form";
+import { formatDate } from "@/lib/utils";
 
 interface UserProfile {
   id: number;
@@ -135,13 +136,7 @@ export default function ProfilePage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  // Using the utility function from lib/utils instead of local formatDate
 
   const formatLastLogin = (lastLoginAt?: string) => {
     if (!lastLoginAt) return "Never";
@@ -154,7 +149,7 @@ export default function ProfilePage() {
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
+    return formatDate(date);
   };
 
   if (status === "loading" || loading) {

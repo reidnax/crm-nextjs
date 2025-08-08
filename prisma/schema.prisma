@@ -37,8 +37,10 @@ model User {
   createdLeads    Lead[]    @relation("UserCreatedLeads")
   assignedLeads   Lead[]    @relation("UserAssignedLeads")
   createdMeetings Meeting[] @relation("UserCreatedMeetings")
+  deletedMeetings Meeting[] @relation("UserDeletedMeetings")
   createdTasks    Task[]    @relation("UserCreatedTasks")
   assignedTasks   Task[]    @relation("UserAssignedTasks")
+  deletedTasks    Task[]    @relation("UserDeletedTasks")
   createdNotes    Note[]    @relation("UserCreatedNotes")
 
   // RBAC relations
@@ -106,7 +108,7 @@ model Lead {
 }
 
 model Meeting {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   subject      String
   description  String?
   duration     Int
@@ -115,26 +117,31 @@ model Meeting {
   leadId       Int
   createdBy    Int?
   // Enhanced meeting fields (non-breaking)
-  status       String?  @default("Scheduled") // Scheduled, In Progress, Completed, Cancelled
-  type         String?  @default("Meeting") // Meeting, Call, Video Call, etc.
+  status       String?   @default("Scheduled") // Scheduled, In Progress, Completed, Cancelled
+  type         String?   @default("Meeting") // Meeting, Call, Video Call, etc.
   location     String? // Meeting location or URL
   agenda       String? // Meeting agenda
   outcome      String? // Meeting outcome/result
-  priority     String?  @default("Medium") // High, Medium, Low
+  priority     String?   @default("Medium") // High, Medium, Low
   attendees    Json? // List of attendees
-  isRecurring  Boolean  @default(false) // Recurring meeting flag
+  isRecurring  Boolean   @default(false) // Recurring meeting flag
   parentId     Int? // For recurring meetings
-  reminderSent Boolean  @default(false) // Reminder notification status
-  createdAt    DateTime @default(now()) @map("createdAt")
-  updatedAt    DateTime @updatedAt @map("updatedAt")
+  reminderSent Boolean   @default(false) // Reminder notification status
+  // Soft delete fields
+  deletedAt    DateTime?
+  deletedBy    Int?
+  createdAt    DateTime  @default(now()) @map("createdAt")
+  updatedAt    DateTime  @updatedAt @map("updatedAt")
 
   // Relations
-  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  creator User? @relation("UserCreatedMeetings", fields: [createdBy], references: [id], onDelete: SetNull)
+  lead          Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator       User? @relation("UserCreatedMeetings", fields: [createdBy], references: [id], onDelete: SetNull)
+  deletedByUser User? @relation("UserDeletedMeetings", fields: [deletedBy], references: [id], onDelete: SetNull)
 
   @@index([startTime])
   @@index([status])
   @@index([leadId])
+  @@index([deletedAt])
   @@map("Meetings")
 }
 
@@ -157,13 +164,17 @@ model Task {
   parentId       Int? // For recurring tasks
   assignedTo     Int? // Task can be assigned to different user
   reminderDate   DateTime? // Reminder date
+  // Soft delete fields
+  deletedAt      DateTime?
+  deletedBy      Int?
   createdAt      DateTime  @default(now()) @map("createdAt")
   updatedAt      DateTime  @updatedAt @map("updatedAt")
 
   // Relations
-  lead     Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  creator  User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
-  assignee User? @relation("UserAssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
+  lead          Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator       User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+  assignee      User? @relation("UserAssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
+  deletedByUser User? @relation("UserDeletedTasks", fields: [deletedBy], references: [id], onDelete: SetNull)
 
   @@index([dueDate])
   @@index([status])
@@ -173,6 +184,7 @@ model Task {
   @@index([createdBy])
   @@index([completedAt])
   @@index([category])
+  @@index([deletedAt])
   // Text search indexes
   @@index([subject])
   // Composite indexes for common query patterns
@@ -303,18 +315,18 @@ model ResourceOwnership {
 }
 
 model MigrationLog {
-  id           Int      @id @default(autoincrement())
-  action       String   // 'deploy', 'deploy-selective', 'deploy-to-production', 'status', 'generate', 'reset'
-  description  String   // Human-readable description
-  command      String   // Actual command executed
-  migrationName String? // Specific migration name (for selective deployments)
+  id             Int      @id @default(autoincrement())
+  action         String // 'deploy', 'deploy-selective', 'deploy-to-production', 'status', 'generate', 'reset'
+  description    String // Human-readable description
+  command        String // Actual command executed
+  migrationName  String? // Specific migration name (for selective deployments)
   targetDatabase String? // Target database URL (for production deployments)
-  output       String?  // Command output
-  error        String?  // Error output (if any)
-  success      Boolean  // Whether the operation was successful
-  duration     Int      // Execution time in milliseconds
-  executedBy   Int      // User who executed the migration
-  executedAt   DateTime @default(now()) @map("createdAt")
+  output         String? // Command output
+  error          String? // Error output (if any)
+  success        Boolean // Whether the operation was successful
+  duration       Int // Execution time in milliseconds
+  executedBy     Int // User who executed the migration
+  executedAt     DateTime @default(now()) @map("createdAt")
 
   // Relations
   user User @relation("UserMigrationLogs", fields: [executedBy], references: [id], onDelete: Cascade)

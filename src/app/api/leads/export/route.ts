@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/api-response";
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
+import { format } from "date-fns";
 
 export async function GET(request: NextRequest) {
   try {
@@ -187,8 +188,8 @@ export async function GET(request: NextRequest) {
       lead.businessIndustry || "",
       lead.assignee?.name || "",
       lead.creator?.name || "",
-      lead.createdAt.toISOString().split("T")[0], // Format date as YYYY-MM-DD
-      lead.updatedAt.toISOString().split("T")[0],
+      format(new Date(lead.createdAt), "dd/MM/yyyy"), // Format date as dd/MM/yyyy
+      format(new Date(lead.updatedAt), "dd/MM/yyyy"),
     ]);
 
     // Combine headers and rows

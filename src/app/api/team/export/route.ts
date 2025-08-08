@@ -6,6 +6,7 @@ import { errorResponse } from "@/lib/api-response";
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
 import { stringify } from "csv-stringify/sync";
+import { format } from "date-fns";
 
 export async function GET(request: NextRequest) {
   try {
@@ -162,9 +163,9 @@ export async function GET(request: NextRequest) {
       "Created Tasks": user._count.createdTasks,
       "Created Meetings": user._count.createdMeetings,
       "Last Login": user.lastLoginAt
-        ? new Date(user.lastLoginAt).toLocaleDateString()
+        ? format(new Date(user.lastLoginAt), "dd/MM/yyyy")
         : "Never",
-      "Created Date": new Date(user.createdAt).toLocaleDateString(),
+      "Created Date": format(new Date(user.createdAt), "dd/MM/yyyy"),
     }));
 
     // Generate CSV

@@ -363,9 +363,13 @@ export async function DELETE(
       return errorResponse("Task not found", 404);
     }
 
-    // Delete the task
-    await prisma.task.delete({
+    // Soft delete the task
+    await prisma.task.update({
       where: { id: taskId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: userId,
+      },
     });
 
     return successResponse(null, "Task deleted successfully");

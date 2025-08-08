@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import TaskForm, { TaskFormData } from "@/components/forms/task-form";
+import { Button } from "@/components/ui/button";
 
 interface TaskDialogProps {
   isOpen: boolean;
@@ -108,15 +109,15 @@ export default function TaskDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden p-4 sm:p-6">
-        <DialogHeader className="pb-4">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="pb-4 flex-shrink-0">
           <DialogTitle className="text-lg sm:text-xl">{title}</DialogTitle>
           <DialogDescription className="text-sm text-gray-600">
             {description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <TaskForm
             onSubmit={handleSubmit}
             onCancel={handleClose}
@@ -126,7 +127,42 @@ export default function TaskDialog({
             initialData={initialData}
             showStatusField={showStatusField}
             showLeadSelector={showLeadSelector}
+            showActions={false}
           />
+        </div>
+
+        {/* Fixed Action Buttons */}
+        <div className="flex gap-2 pt-4 border-t mt-4 flex-shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={isSubmitting}
+            className="flex-1"
+            onClick={() => {
+              // Trigger form submission directly
+              const form = document.querySelector("form");
+              if (form) {
+                // Use requestSubmit if available, fall back to submit event
+                if (form.requestSubmit) {
+                  form.requestSubmit();
+                } else {
+                  form.dispatchEvent(
+                    new Event("submit", { bubbles: true, cancelable: true })
+                  );
+                }
+              }
+            }}
+          >
+            {isSubmitting ? submitButtonLoadingText : submitButtonText}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

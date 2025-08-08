@@ -20,6 +20,7 @@ import {
   Phone,
   Clock,
 } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Lead {
   id: number;
@@ -224,7 +225,7 @@ export default function DashboardPage() {
                         {lead.company || "No company"}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {new Date(lead.createdAt).toLocaleDateString()}
+                        {formatDate(lead.createdAt)}
                       </p>
                     </div>
                     <Phone className="h-4 w-4 text-gray-400" />
@@ -267,11 +268,7 @@ export default function DashboardPage() {
                         {meeting.lead.name}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {new Date(meeting.startTime).toLocaleDateString()} at{" "}
-                        {new Date(meeting.startTime).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatDateTime(meeting.startTime)}
                       </p>
                     </div>
                   </div>

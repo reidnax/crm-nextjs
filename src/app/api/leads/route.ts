@@ -193,8 +193,12 @@ export async function GET(request: NextRequest) {
           assignee: {
             select: { id: true, name: true, username: true },
           },
-          meetings: true,
-          tasks: true,
+          meetings: {
+            where: { deletedAt: null }, // Exclude deleted meetings
+          },
+          tasks: {
+            where: { deletedAt: null }, // Exclude deleted tasks
+          },
           notes: true,
         },
         ...paginationOptions,

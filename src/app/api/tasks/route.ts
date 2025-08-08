@@ -57,12 +57,26 @@ export async function GET(request: NextRequest) {
     const categoryFilter = searchParams.get("category");
     const assigneeFilter = searchParams.get("assignee");
     const searchQuery = searchParams.get("search");
+    const includeDeleted = searchParams.get("includeDeleted") === "true";
 
     // Server-side sorting parameters
     const sortField = searchParams.get("sortField") || "dueDate";
     const sortDirection = searchParams.get("sortDirection") || "asc";
 
+    // Check if user can view deleted items (admin/admin-dev only)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    const canViewDeleted =
+      user?.role && ["Admin", "Admin-Dev"].includes(user.role);
+
     const where: Record<string, unknown> = {};
+
+    // By default, exclude deleted items unless explicitly requested by admins
+    if (!includeDeleted || !canViewDeleted) {
+      where.deletedAt = null;
+    }
     if (leadId) {
       where.leadId = parseInt(leadId);
     }

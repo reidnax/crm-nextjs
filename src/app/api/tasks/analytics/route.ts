@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
+    // CRITICAL: Exclude deleted items from analytics
+    where.deletedAt = null;
+
     // Apply permission-based filtering (same logic as main tasks API)
     if (!hasReadAllTasks) {
       const permissionFilters = [];

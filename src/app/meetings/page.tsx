@@ -1,136 +1,285 @@
 "use client";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Calendar, Clock, Users, ArrowLeft, Sparkles } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import MeetingsContainer from "@/components/meetings/MeetingsContainer";
+import MeetingHeaderCompact, {
+  MeetingFilterState,
+  MeetingSortState,
+  MeetingAnalytics,
+} from "@/components/meetings/MeetingHeaderCompact";
+import MeetingDialog from "@/components/dialogs/meeting-dialog";
+import { Meeting } from "@/components/meetings/MeetingsTable";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import ErrorBoundary, {
+  SimpleErrorFallback,
+} from "@/components/ui/error-boundary";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { isAdminRole } from "@/lib/permissions";
 
 export default function MeetingsPage() {
+  const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
+  const [isMeetingDialogOpen, setIsMeetingDialogOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
+  const [isEditMeetingDialogOpen, setIsEditMeetingDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    meeting?: Meeting;
+  }>({ isOpen: false });
+
+  // Filter and sorting state
+  const [filters, setFilters] = useState<MeetingFilterState>({
+    search: "",
+    status: "all",
+    type: "all",
+    priority: "all",
+    dateRange: "all",
+    includeDeleted: false,
+  });
+  const [sort, setSort] = useState<MeetingSortState>({
+    field: "startTime",
+    direction: "asc",
+  });
+
+  // Analytics query for meeting statistics
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+  } = useQuery<MeetingAnalytics, Error>({
+    queryKey: ["meetings", "analytics"],
+    queryFn: async () => {
+      const response = await fetch("/api/meetings/analytics", {
+        cache: "no-store",
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch meeting analytics");
+      }
+
+      return result.data;
+    },
+    enabled: !!session,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    retry: 3,
+    retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 30000),
+  });
+
+  // Meeting action handlers
+  const handleEditMeeting = useCallback((meeting: Meeting) => {
+    setEditingMeeting(meeting);
+    setIsEditMeetingDialogOpen(true);
+  }, []);
+
+  const handleDeleteMeeting = useCallback((meeting: Meeting) => {
+    setDeleteDialog({ isOpen: true, meeting });
+  }, []);
+
+  const confirmDeleteMeeting = useCallback(async () => {
+    if (!deleteDialog.meeting) return;
+
+    try {
+      const response = await fetch(`/api/meetings/${deleteDialog.meeting.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete meeting");
+      }
+
+      toast.success("Meeting deleted successfully");
+      setDeleteDialog({ isOpen: false });
+
+      // Invalidate meetings queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    } catch (error) {
+      console.error("Error deleting meeting:", error);
+      toast.error("Failed to delete meeting");
+    }
+  }, [deleteDialog.meeting, queryClient]);
+
+  const handleCompleteMeeting = useCallback(
+    async (meeting: Meeting) => {
+      try {
+        const newStatus =
+          meeting.status === "Completed" ? "Scheduled" : "Completed";
+
+        const response = await fetch(`/api/meetings/${meeting.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...meeting,
+            status: newStatus,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update meeting");
+        }
+
+        toast.success(`Meeting marked as ${newStatus.toLowerCase()}`);
+
+        // Invalidate meetings queries to refresh the list
+        queryClient.invalidateQueries({ queryKey: ["meetings"] });
+      } catch (error) {
+        console.error("Error updating meeting:", error);
+        toast.error("Failed to update meeting");
+      }
+    },
+    [queryClient]
+  );
+
+  const handleFilterChange = useCallback(
+    (key: keyof MeetingFilterState, value: string | boolean) => {
+      setFilters((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const handleSortChange = useCallback((field: string) => {
+    setSort((prev) => ({
+      field,
+      direction:
+        prev.field === field && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({
+      search: "",
+      status: "all",
+      type: "all",
+      priority: "all",
+      dateRange: "all",
+      includeDeleted: false,
+    });
+    setSort({
+      field: "startTime",
+      direction: "asc",
+    });
+  }, []);
+
+  const handleCloseEditMeetingDialog = useCallback(() => {
+    setEditingMeeting(null);
+    setIsEditMeetingDialogOpen(false);
+  }, []);
+
+  const invalidateQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["meetings"] });
+  }, [queryClient]);
+
+  const handleMeetingCreated = useCallback(() => {
+    invalidateQueries();
+  }, [invalidateQueries]);
+
+  const handleMeetingUpdated = useCallback(() => {
+    invalidateQueries();
+  }, [invalidateQueries]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/leads">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Leads
-            </Button>
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-blue-500 text-white p-3 rounded-lg">
-            <Calendar className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Meetings</h1>
-            <p className="text-gray-600">
-              Manage all your meetings and appointments
-            </p>
-          </div>
-        </div>
+    <div className="h-full flex flex-col bg-gray-50">
+      {/* Compact Header */}
+      <div className="flex-shrink-0">
+        <MeetingHeaderCompact
+          filters={filters}
+          sort={sort}
+          analytics={analytics}
+          isAnalyticsLoading={analyticsLoading}
+          analyticsError={analyticsError}
+          onFilterChange={handleFilterChange}
+          onSortChange={handleSortChange}
+          onClearFilters={handleClearFilters}
+          onAddMeeting={() => setIsMeetingDialogOpen(true)}
+          isAdmin={isAdminRole(session?.user?.role)}
+        />
       </div>
 
-      {/* Coming Soon Card */}
-      <div className="flex items-center justify-center min-h-[500px]">
-        <Card className="max-w-2xl w-full text-center">
-          <CardHeader className="pb-6">
-            <div className="flex justify-center mb-4">
-              <div className="relative">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-full">
-                  <Calendar className="h-12 w-12" />
-                </div>
-                <div className="absolute -top-2 -right-2 bg-yellow-500 text-white p-1 rounded-full">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold mb-2">
-              Meetings Hub Coming Soon!
-            </CardTitle>
-            <CardDescription className="text-lg text-gray-600">
-              We&apos;re building an amazing meetings management experience for
-              you
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-blue-900">Calendar View</h3>
-                <p className="text-sm text-blue-700">
-                  Visual calendar with drag & drop scheduling
-                </p>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-lg">
-                <Clock className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-green-900">
-                  Smart Scheduling
-                </h3>
-                <p className="text-sm text-green-700">
-                  AI-powered meeting suggestions and conflicts detection
-                </p>
-              </div>
-
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <Users className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-purple-900">
-                  Team Integration
-                </h3>
-                <p className="text-sm text-purple-700">
-                  Sync with team calendars and video conferencing
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-3">
-                What&apos;s Coming:
-              </h4>
-              <ul className="text-left space-y-2 text-gray-700 max-w-md mx-auto">
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Global meetings dashboard with filtering and search
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Calendar integrations (Google, Outlook, Apple)
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  Meeting analytics and reporting
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  Automated follow-up and meeting notes
-                </li>
-              </ul>
-            </div>
-
-            <div className="pt-4">
-              <p className="text-sm text-gray-500 mb-4">
-                In the meantime, you can manage meetings from individual lead
-                pages
-              </p>
-              <Link href="/leads">
-                <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Manage Meetings in Leads
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Meetings Container - Take remaining height */}
+      <div className="flex-1 px-2 sm:px-4 py-2 sm:py-4 overflow-hidden">
+        <ErrorBoundary fallback={SimpleErrorFallback}>
+          <MeetingsContainer
+            filters={filters}
+            sort={sort}
+            onEditMeeting={handleEditMeeting}
+            onDeleteMeeting={handleDeleteMeeting}
+            onCompleteMeeting={handleCompleteMeeting}
+          />
+        </ErrorBoundary>
       </div>
+
+      {/* Meeting Dialog for creating new meetings */}
+      <MeetingDialog
+        isOpen={isMeetingDialogOpen}
+        onClose={() => setIsMeetingDialogOpen(false)}
+        onMeetingCreated={handleMeetingCreated}
+      />
+
+      {/* Edit Meeting Dialog */}
+      {editingMeeting && (
+        <MeetingDialog
+          isOpen={isEditMeetingDialogOpen}
+          onClose={handleCloseEditMeetingDialog}
+          onMeetingUpdated={handleMeetingUpdated}
+          initialData={{
+            id: editingMeeting.id,
+            subject: editingMeeting.subject,
+            description: editingMeeting.description || "",
+            startTime: editingMeeting.startTime,
+            endTime: editingMeeting.endTime,
+            location: editingMeeting.location || "",
+            type: editingMeeting.type as
+              | "Meeting"
+              | "Call"
+              | "Video Call"
+              | "Demo"
+              | undefined,
+            status: editingMeeting.status as
+              | "Scheduled"
+              | "Completed"
+              | "In Progress"
+              | "Cancelled"
+              | undefined,
+            priority: editingMeeting.priority as
+              | "Medium"
+              | "High"
+              | "Low"
+              | undefined,
+            agenda: editingMeeting.agenda || "",
+            outcome: editingMeeting.outcome || "",
+            attendees: editingMeeting.attendees || [],
+            isRecurring: editingMeeting.isRecurring || false,
+            leadId: editingMeeting.lead.id,
+          }}
+        />
+      )}
+
+      <DeleteConfirmationDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteDialog({ isOpen: false })}
+        onConfirm={confirmDeleteMeeting}
+        title="Delete Meeting"
+        description={
+          deleteDialog.meeting
+            ? `Are you sure you want to delete "${deleteDialog.meeting.subject}"? This action cannot be undone.`
+            : ""
+        }
+      />
     </div>
   );
 }
