@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   Shield,
   Activity,
+  Database,
 } from "lucide-react";
 import { RoleGate } from "@/components/auth/RoleGate";
 import { usePermissions } from "@/contexts/PermissionContext";
@@ -38,6 +39,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Audit Logs", href: "/admin/audit", icon: Shield },
+  { name: "Migrations", href: "/admin/migrations", icon: Database },
 ];
 
 const debugNavigation = [
