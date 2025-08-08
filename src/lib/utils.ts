@@ -62,3 +62,20 @@ export function getPriorityColor(priority?: string) {
       return "bg-gray-100 text-gray-700";
   }
 }
+
+export function getTaskStatusColor(status?: string) {
+  switch (status?.toLowerCase()) {
+    case "pending":
+      return "bg-yellow-100 text-yellow-700";
+    case "in progress":
+      return "bg-blue-100 text-blue-700";
+    case "completed":
+      return "bg-green-100 text-green-700";
+    case "cancelled":
+      return "bg-red-100 text-red-700";
+    case "on hold":
+      return "bg-gray-100 text-gray-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+}

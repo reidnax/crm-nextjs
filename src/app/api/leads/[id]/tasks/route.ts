@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { PermissionManager } from "@/lib/permissions/core";
 import { getEffectiveUserForPermissions } from "@/lib/virtual-session-server";
@@ -14,7 +15,7 @@ async function canAccessLead(
 ): Promise<boolean> {
   const hasGlobalPermission = await PermissionManager.hasPermission(
     userId,
-    `leads.${action}.all` as any
+    `leads.${action}.all`
   );
   if (hasGlobalPermission) return true;
 
@@ -26,7 +27,7 @@ async function canAccessLead(
 
   const hasAssignedPermission = await PermissionManager.hasPermission(
     userId,
-    `leads.${action}.assigned` as any
+    `leads.${action}.assigned`
   );
   if (
     hasAssignedPermission &&
@@ -37,7 +38,11 @@ async function canAccessLead(
 
   const hasDepartmentPermission = await PermissionManager.hasPermission(
     userId,
-    `leads.${action}.department` as any
+    action === "read"
+      ? "leads.read.department"
+      : action === "update"
+      ? "leads.update.department"
+      : "leads.delete.all" // delete.department doesn't exist; fall back to delete.all
   );
   if (hasDepartmentPermission) {
     const currentUser = await prisma.user.findUnique({
@@ -94,11 +99,47 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { subject, description, dueDate, priority, status } = body;
+    const {
+      subject,
+      description,
+      dueDate,
+      priority,
+      status,
+      category,
+      estimatedHours,
+      actualHours,
+      assignedTo,
+      reminderDate,
+      tags,
+      isRecurring,
+    } = body;
 
     // Validate required fields
     if (!subject || !dueDate) {
       return errorResponse("Subject and due date are required", 400);
+    }
+
+    // Validate optional number fields
+    if (
+      estimatedHours !== undefined &&
+      (isNaN(estimatedHours) || estimatedHours < 0)
+    ) {
+      return errorResponse("Estimated hours must be a positive number", 400);
+    }
+
+    if (actualHours !== undefined && (isNaN(actualHours) || actualHours < 0)) {
+      return errorResponse("Actual hours must be a positive number", 400);
+    }
+
+    // Validate assignedTo user exists if provided
+    if (assignedTo) {
+      const assigneeExists = await prisma.user.findUnique({
+        where: { id: assignedTo },
+        select: { id: true },
+      });
+      if (!assigneeExists) {
+        return errorResponse("Assigned user not found", 400);
+      }
     }
 
     // Check if lead exists
@@ -111,17 +152,41 @@ export async function POST(
       return errorResponse("Lead not found", 404);
     }
 
+    // Prepare task data
+    const taskData: Prisma.TaskUncheckedCreateInput = {
+      subject,
+      description: description?.trim() || null,
+      dueDate: new Date(dueDate),
+      priority: priority || "Medium",
+      status: status || "Pending",
+      category: category || "Other",
+      leadId,
+      createdBy: userId,
+    };
+
+    // Add optional fields if provided
+    if (estimatedHours !== undefined) {
+      taskData.estimatedHours = parseFloat(estimatedHours);
+    }
+    if (actualHours !== undefined) {
+      taskData.actualHours = parseFloat(actualHours);
+    }
+    if (assignedTo) {
+      taskData.assignedTo = assignedTo;
+    }
+    if (reminderDate) {
+      taskData.reminderDate = new Date(reminderDate);
+    }
+    if (tags && Array.isArray(tags)) {
+      taskData.tags = tags;
+    }
+    if (isRecurring !== undefined) {
+      taskData.isRecurring = Boolean(isRecurring);
+    }
+
     // Create the task
     const task = await prisma.task.create({
-      data: {
-        subject,
-        description: description || "",
-        dueDate: new Date(dueDate),
-        priority: priority || "Medium",
-        status: status || "Pending",
-        leadId,
-        createdBy: userId,
-      },
+      data: taskData,
       include: {
         creator: {
           select: { id: true, name: true, username: true },
@@ -197,7 +262,9 @@ export async function GET(
     }
 
     // Apply task filtering based on permissions
-    const taskFilter: any = { leadId };
+    const taskFilter: Prisma.TaskWhereInput = {
+      leadId,
+    } as Prisma.TaskWhereInput;
 
     if (!hasReadAllTasks) {
       const permissionFilters = [];
@@ -248,3 +315,6 @@ export async function GET(
     return errorResponse("Failed to fetch tasks", 500);
   }
 }
+
+// PUT /api/leads/[id]/tasks/[taskId] - Update a specific task (will be handled by a separate route)
+// DELETE /api/leads/[id]/tasks/[taskId] - Delete a specific task (will be handled by a separate route)

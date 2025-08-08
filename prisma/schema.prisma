@@ -38,6 +38,7 @@ model User {
   assignedLeads   Lead[]    @relation("UserAssignedLeads")
   createdMeetings Meeting[] @relation("UserCreatedMeetings")
   createdTasks    Task[]    @relation("UserCreatedTasks")
+  assignedTasks   Task[]    @relation("UserAssignedTasks")
   createdNotes    Note[]    @relation("UserCreatedNotes")
 
   // RBAC relations
@@ -99,6 +100,7 @@ model Lead {
   @@index([priority])
   @@index([assign])
   @@index([createdAt])
+  @@index([name]) // For search functionality
   @@map("Leads")
 }
 
@@ -158,13 +160,28 @@ model Task {
   updatedAt      DateTime  @updatedAt @map("updatedAt")
 
   // Relations
-  lead    Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  creator User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+  lead     Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator  User? @relation("UserCreatedTasks", fields: [createdBy], references: [id], onDelete: SetNull)
+  assignee User? @relation("UserAssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
 
   @@index([dueDate])
   @@index([status])
   @@index([priority])
   @@index([leadId])
+  @@index([assignedTo])
+  @@index([createdBy])
+  @@index([completedAt])
+  @@index([category])
+  // Text search indexes
+  @@index([subject])
+  // Composite indexes for common query patterns
+  @@index([status, dueDate])
+  @@index([leadId, status])
+  @@index([assignedTo, status])
+  @@index([createdBy, status])
+  @@index([status, dueDate, leadId]) // For overdue queries
+  @@index([status, priority]) // For filtered listings
+  @@index([category, status]) // For category filtering
   @@map("Tasks")
 }
 
