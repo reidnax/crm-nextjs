@@ -58,6 +58,27 @@ END $$;
 -- Create new indexes for performance optimization
 DO $$
 BEGIN
+    -- Basic single-column indexes for new fields
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Tasks' AND indexname = 'Tasks_assignedTo_idx') THEN
+        CREATE INDEX "Tasks_assignedTo_idx" ON "Tasks"("assignedTo");
+        RAISE NOTICE 'Created index: Tasks_assignedTo_idx';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Tasks' AND indexname = 'Tasks_createdBy_idx') THEN
+        CREATE INDEX "Tasks_createdBy_idx" ON "Tasks"("createdBy");
+        RAISE NOTICE 'Created index: Tasks_createdBy_idx';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Tasks' AND indexname = 'Tasks_completedAt_idx') THEN
+        CREATE INDEX "Tasks_completedAt_idx" ON "Tasks"("completedAt");
+        RAISE NOTICE 'Created index: Tasks_completedAt_idx';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Tasks' AND indexname = 'Tasks_category_idx') THEN
+        CREATE INDEX "Tasks_category_idx" ON "Tasks"("category");
+        RAISE NOTICE 'Created index: Tasks_category_idx';
+    END IF;
+    
     -- Text search indexes
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Tasks' AND indexname = 'Tasks_subject_idx') THEN
         CREATE INDEX "Tasks_subject_idx" ON "Tasks"("subject");
@@ -131,6 +152,15 @@ BEGIN
     END IF;
 END $$;
 
+-- Add index for Lead search functionality
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Leads' AND indexname = 'Leads_name_idx') THEN
+        CREATE INDEX "Leads_name_idx" ON "Leads"("name");
+        RAISE NOTICE 'Created index: Leads_name_idx for search functionality';
+    END IF;
+END $$;
+
 -- Summary message
 DO $$
 BEGIN
@@ -143,6 +173,7 @@ BEGIN
     RAISE NOTICE '   - Recurring task support';
     RAISE NOTICE '   - Task assignment functionality';
     RAISE NOTICE '   - Reminder functionality';
+    RAISE NOTICE '   - Lead search functionality';
     RAISE NOTICE '   - Performance-optimized indexes';
     RAISE NOTICE '🚀 Ready for production deployment!';
 END $$;
