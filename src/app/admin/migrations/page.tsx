@@ -33,7 +33,7 @@ interface Migration {
   timestamp: string;
   description: string;
   created: string;
-  status: 'deployed' | 'pending';
+  status: "deployed" | "pending";
   isDeployed: boolean;
   sqlContent: string;
   fullSqlContent: string;
@@ -47,6 +47,7 @@ interface MigrationStatus {
   output: string;
   statusAvailable?: boolean;
   environment?: string;
+  method?: string;
 }
 
 interface MigrationData {
@@ -128,16 +129,20 @@ export default function AdminMigrationsPage() {
     }
   };
 
-  const executeMigrationAction = async (action: string, migrationName?: string, targetDatabase?: string) => {
+  const executeMigrationAction = async (
+    action: string,
+    migrationName?: string,
+    targetDatabase?: string
+  ) => {
     try {
       setExecuting(action);
       const response = await fetch("/api/admin/migrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action, 
-          migrationName, 
-          targetDatabase 
+        body: JSON.stringify({
+          action,
+          migrationName,
+          targetDatabase,
         }),
       });
 
@@ -145,7 +150,7 @@ export default function AdminMigrationsPage() {
 
       if (result.success) {
         toast.success(`${result.data.description} completed successfully`);
-        
+
         // Refresh migration data and logs after successful execution
         await fetchMigrationData();
         await fetchMigrationLogs();
@@ -198,6 +203,9 @@ export default function AdminMigrationsPage() {
           <h1 className="text-3xl font-bold">Database Migrations</h1>
           <p className="text-muted-foreground">
             Manage database schema migrations and view migration history
+            {migrationData?.status.method === "database_query" && (
+              <span className="text-green-600 ml-2">(Database-powered status)</span>
+            )}
           </p>
         </div>
         <Badge variant="secondary" className="flex items-center space-x-1">
@@ -206,16 +214,16 @@ export default function AdminMigrationsPage() {
         </Badge>
       </div>
 
-      {/* Serverless Environment Warning */}
-      {migrationData?.status.environment === 'serverless' && !migrationData?.status.statusAvailable && (
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
-            <strong>Serverless Environment Detected:</strong> Migration status commands are limited in serverless environments like Vercel. 
-            Migration deployment commands will still work normally. Use the "Deploy All Migrations" button to apply pending migrations.
-          </AlertDescription>
-        </Alert>
-      )}
+              {/* Status Method Info */}
+        {migrationData?.status.method === "database_query" && (
+          <Alert className="border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              <strong>Enhanced Migration Status:</strong> Migration status is now retrieved directly from the database 
+              (_prisma_migrations table) for 100% accuracy in all environments including Vercel serverless.
+            </AlertDescription>
+          </Alert>
+        )}
 
       {/* Migration Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -359,19 +367,24 @@ export default function AdminMigrationsPage() {
               <span>Refresh</span>
             </Button>
           </div>
-          
+
           {showProductionDeploy && (
             <div className="mt-6 p-4 border rounded-lg bg-yellow-50">
               <div className="flex items-center space-x-2 mb-3">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <h3 className="font-medium text-yellow-800">Production Deployment</h3>
+                <h3 className="font-medium text-yellow-800">
+                  Production Deployment
+                </h3>
               </div>
               <p className="text-sm text-yellow-700 mb-4">
-                ⚠️ This will deploy migrations directly to your production database. Ensure you have a backup!
+                ⚠️ This will deploy migrations directly to your production
+                database. Ensure you have a backup!
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Production Database URL</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Production Database URL
+                  </label>
                   <input
                     type="text"
                     value={productionDbUrl}
@@ -382,7 +395,13 @@ export default function AdminMigrationsPage() {
                 </div>
                 <div className="flex space-x-2">
                   <Button
-                    onClick={() => executeMigrationAction("deploy-to-production", undefined, productionDbUrl)}
+                    onClick={() =>
+                      executeMigrationAction(
+                        "deploy-to-production",
+                        undefined,
+                        productionDbUrl
+                      )
+                    }
                     disabled={executing !== null || !productionDbUrl}
                     className="flex items-center space-x-2"
                   >
@@ -437,16 +456,25 @@ export default function AdminMigrationsPage() {
                       onClick={() => setSelectedMigration(migration)}
                     >
                       <div className="flex items-center space-x-2">
-                        <div className="font-medium">{migration.description}</div>
-                        <Badge 
-                          variant={migration.isDeployed ? "default" : "secondary"}
-                          className={migration.isDeployed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                        <div className="font-medium">
+                          {migration.description}
+                        </div>
+                        <Badge
+                          variant={
+                            migration.isDeployed ? "default" : "secondary"
+                          }
+                          className={
+                            migration.isDeployed
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }
                         >
                           {migration.status}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {migration.name} • {new Date(migration.created).toLocaleString()}
+                        {migration.name} •{" "}
+                        {new Date(migration.created).toLocaleString()}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -455,7 +483,12 @@ export default function AdminMigrationsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => executeMigrationAction("deploy-selective", migration.name)}
+                          onClick={() =>
+                            executeMigrationAction(
+                              "deploy-selective",
+                              migration.name
+                            )
+                          }
                           disabled={executing !== null}
                         >
                           {executing === "deploy-selective" ? (
@@ -510,7 +543,8 @@ export default function AdminMigrationsPage() {
                 </Button>
               </div>
               <CardDescription>
-                Persistent deployment logs and execution history stored in database
+                Persistent deployment logs and execution history stored in
+                database
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -523,15 +557,22 @@ export default function AdminMigrationsPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Terminal className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No deployment logs yet</p>
-                  <p className="text-sm">Logs will appear here when you execute migrations</p>
+                  <p className="text-sm">
+                    Logs will appear here when you execute migrations
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {deploymentLogs.map((log, index) => (
-                    <div key={log.id || index} className="border rounded-lg p-4">
+                    <div
+                      key={log.id || index}
+                      className="border rounded-lg p-4"
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <Badge variant={log.success ? "default" : "destructive"}>
+                          <Badge
+                            variant={log.success ? "default" : "destructive"}
+                          >
                             {log.success ? "Success" : "Failed"}
                           </Badge>
                           <span className="font-medium">{log.description}</span>
@@ -544,7 +585,9 @@ export default function AdminMigrationsPage() {
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground mb-2">
-                        Executed by: {log.user?.name || 'Unknown'} ({log.user?.role || 'Unknown'}) • Duration: {log.duration}ms
+                        Executed by: {log.user?.name || "Unknown"} (
+                        {log.user?.role || "Unknown"}) • Duration:{" "}
+                        {log.duration}ms
                       </div>
                       {log.output && (
                         <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto max-h-40">

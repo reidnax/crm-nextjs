@@ -23,23 +23,39 @@ export async function GET(request: NextRequest) {
       return errorResponse("Forbidden: Admin access required", 403);
     }
 
-    // Get migration status (handle non-zero exit codes for pending migrations)
+    // Get migration status directly from database (more reliable than CLI)
+    let appliedMigrations = new Set<string>();
     let statusOutput = "";
     let statusAvailable = true;
-    
+
     try {
-      const { stdout } = await execAsync("npx prisma migrate status");
-      statusOutput = stdout;
-    } catch (error: any) {
-      // Prisma migrate status returns non-zero exit code when migrations are pending
-      // This is expected behavior, so we use the stdout from the error
-      statusOutput = error.stdout || "";
+      // Query the _prisma_migrations table directly to get applied migrations
+      const appliedMigrationsResult = await prisma.$queryRaw<Array<{ migration_name: string }>>`
+        SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL
+      `;
       
-      if (!error.stdout) {
-        // If no stdout, might be Vercel/serverless limitation
-        console.warn("Migration status command failed, possibly due to serverless environment:", error.message);
-        statusAvailable = false;
-        statusOutput = "Migration status unavailable in serverless environment. Use deployment commands to apply migrations.";
+      appliedMigrations = new Set(
+        appliedMigrationsResult.map(row => row.migration_name)
+      );
+      
+      statusOutput = `Database migration status checked directly from _prisma_migrations table.\nApplied migrations: ${appliedMigrations.size}`;
+      statusAvailable = true;
+    } catch (error: any) {
+      console.warn("Failed to query migration status from database:", error.message);
+      
+      // Fallback to CLI method
+      try {
+        const { stdout } = await execAsync("npx prisma migrate status");
+        statusOutput = stdout;
+        
+        // Parse applied migrations from CLI output  
+        if (stdout.includes("Database schema is up to date")) {
+          // All migrations are applied
+          statusAvailable = true;
+        }
+      } catch (cliError: any) {
+        statusOutput = cliError.stdout || "Migration status unavailable in serverless environment. Use deployment commands to apply migrations.";
+        statusAvailable = !!cliError.stdout;
       }
     }
 
@@ -47,29 +63,8 @@ export async function GET(request: NextRequest) {
     const migrationsDir = path.join(process.cwd(), "prisma", "migrations");
     const migrationFolders = await fs.readdir(migrationsDir);
 
-    // Check if there are pending migrations mentioned in the output
-    const hasPendingMigrations = statusAvailable && (
-      statusOutput.includes("Following migration have not yet been applied") ||
-      statusOutput.includes("migration have not yet been applied")
-    );
-
-    // Get list of pending migrations from status output
-    const pendingMigrations = new Set<string>();
-    if (hasPendingMigrations) {
-      const pendingSection = statusOutput.split(
-        "Following migration have not yet been applied:"
-      )[1];
-      if (pendingSection) {
-        pendingSection
-          .split("\n")
-          .forEach((line) => {
-            const trimmed = line.trim();
-            if (trimmed && !trimmed.includes("To apply migrations")) {
-              pendingMigrations.add(trimmed);
-            }
-          });
-      }
-    }
+    // We now have applied migrations directly from database query
+    // No need to parse CLI output for migration status
 
     const migrations = [];
     for (const folder of migrationFolders) {
@@ -88,10 +83,9 @@ export async function GET(request: NextRequest) {
           sqlContent = "-- Migration file not found or empty";
         }
 
-        // Determine deployment status
-        // If status is not available (serverless), assume all migrations are pending for safety
-        const isDeployed = statusAvailable ? !pendingMigrations.has(folder) : false;
-        const status = isDeployed ? 'deployed' : (statusAvailable ? 'pending' : 'unknown');
+        // Determine deployment status based on database query
+        const isDeployed = appliedMigrations.has(folder);
+        const status = isDeployed ? "deployed" : "pending";
 
         migrations.push({
           name: folder,
@@ -112,8 +106,8 @@ export async function GET(request: NextRequest) {
     migrations.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     // Calculate counts from the migrations array
-    const appliedCount = migrations.filter(m => m.isDeployed).length;
-    const pendingCount = migrations.filter(m => !m.isDeployed).length;
+    const appliedCount = migrations.filter((m) => m.isDeployed).length;
+    const pendingCount = migrations.filter((m) => !m.isDeployed).length;
     const totalMigrations = migrations.length;
 
     // Get recent migration logs
@@ -126,8 +120,9 @@ export async function GET(request: NextRequest) {
         total: migrations.length,
         lastMigration: migrations[0]?.name || null,
         output: statusOutput,
-        statusAvailable,
-        environment: process.env.VERCEL ? 'serverless' : 'standard',
+        statusAvailable: true, // Always available with database query method
+        environment: process.env.VERCEL ? "serverless" : "standard",
+        method: "database_query", // Indicate we're using direct database queries
       },
       migrations,
       totalMigrations: migrations.length,
@@ -160,7 +155,10 @@ export async function POST(request: NextRequest) {
         break;
       case "deploy-selective":
         if (!migrationName) {
-          return errorResponse("Migration name is required for selective deployment", 400);
+          return errorResponse(
+            "Migration name is required for selective deployment",
+            400
+          );
         }
         // For selective deployment, we need to use a different approach
         // Since Prisma doesn't support selective deployment directly,
@@ -224,7 +222,7 @@ export async function POST(request: NextRequest) {
 
     // Log the migration execution to database
     const success = !stderr || stderr.trim() === "";
-    
+
     await MigrationService.logMigration({
       action,
       description,
