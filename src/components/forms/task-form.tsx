@@ -41,6 +41,7 @@ interface TaskFormProps {
   showLeadSelector?: boolean;
   mode?: "create" | "edit";
   serverErrors?: Record<string, string>;
+  showActions?: boolean;
 }
 
 export default function TaskForm({
@@ -54,6 +55,7 @@ export default function TaskForm({
   showLeadSelector = false,
   mode = "create",
   serverErrors = {},
+  showActions = true,
 }: TaskFormProps) {
   const [tagInput, setTagInput] = useState("");
   const [currentAssigneeName, setCurrentAssigneeName] = useState<
@@ -201,10 +203,7 @@ export default function TaskForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(onFormSubmit)}
-      className="space-y-4 max-h-[70vh] overflow-y-auto px-1"
-    >
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
       {/* Server Errors Alert */}
       {Object.keys(serverErrors).length > 0 && (
         <Alert variant="destructive">
@@ -622,20 +621,22 @@ export default function TaskForm({
       </div>
 
       {/* Form Actions */}
-      <div className="flex gap-2 pt-4 border-t">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isSubmitting} className="flex-1">
-          {isSubmitting ? submitButtonLoadingText : submitButtonText}
-        </Button>
-      </div>
+      {showActions && (
+        <div className="flex gap-2 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting} className="flex-1">
+            {isSubmitting ? submitButtonLoadingText : submitButtonText}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

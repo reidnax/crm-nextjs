@@ -15,6 +15,8 @@ import ErrorBoundary, {
   SimpleErrorFallback,
 } from "@/components/ui/error-boundary";
 import { Loader2 } from "lucide-react";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { isAdminRole } from "@/lib/permissions";
 
 // TanStack imports
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +33,10 @@ export default function TasksPage() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    task?: Task;
+  }>({ isOpen: false });
 
   // Filter and sorting state - only UI state, no data fetching
   const [filters, setFilters] = useState<FilterState>({
@@ -39,6 +45,7 @@ export default function TasksPage() {
     priority: "all",
     category: "all",
     assignee: "all",
+    includeDeleted: false,
   });
   const [sort, setSort] = useState<SortState>({
     field: "dueDate",
@@ -83,7 +90,7 @@ export default function TasksPage() {
   }, []);
 
   const handleFilterChange = useCallback(
-    (key: keyof FilterState, value: string) => {
+    (key: keyof FilterState, value: string | boolean) => {
       setFilters((prev) => ({ ...prev, [key]: value }));
     },
     []
@@ -104,12 +111,26 @@ export default function TasksPage() {
       priority: "all",
       category: "all",
       assignee: "all",
+      includeDeleted: false,
     });
     setSort({
       field: "dueDate",
       direction: "asc",
     });
   }, []);
+
+  // Delete confirmation wrapper
+  const handleDeleteTaskWithConfirmation = useCallback((task: Task) => {
+    setDeleteDialog({ isOpen: true, task });
+  }, []);
+
+  const confirmDeleteTask = useCallback(async () => {
+    if (!deleteDialog.task) return;
+
+    // Call the actual delete function from the hook
+    await handleDeleteTask(deleteDialog.task);
+    setDeleteDialog({ isOpen: false });
+  }, [deleteDialog.task, handleDeleteTask]);
 
   if (status === "loading") {
     return (
@@ -134,6 +155,7 @@ export default function TasksPage() {
           onSortChange={handleSortChange}
           onClearFilters={handleClearFilters}
           onAddTask={() => setIsTaskDialogOpen(true)}
+          isAdmin={isAdminRole(session?.user?.role)}
         />
       </div>
 
@@ -145,7 +167,7 @@ export default function TasksPage() {
             sort={sort}
             onToggleTaskCompletion={handleToggleTaskCompletion}
             onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
+            onDeleteTask={handleDeleteTaskWithConfirmation}
           />
         </ErrorBoundary>
       </div>
@@ -196,6 +218,18 @@ export default function TasksPage() {
           showStatusField={true}
         />
       )}
+
+      <DeleteConfirmationDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteDialog({ isOpen: false })}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        description={
+          deleteDialog.task
+            ? `Are you sure you want to delete "${deleteDialog.task.subject}"? This action cannot be undone.`
+            : ""
+        }
+      />
     </div>
   );
 }

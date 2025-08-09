@@ -117,6 +117,7 @@ export async function GET(
           select: { id: true, name: true, username: true },
         },
         meetings: {
+          where: { deletedAt: null }, // Exclude deleted meetings
           include: {
             creator: {
               select: { id: true, name: true, username: true },
@@ -125,6 +126,7 @@ export async function GET(
           orderBy: { createdAt: "desc" },
         },
         tasks: {
+          where: { deletedAt: null }, // Exclude deleted tasks
           include: {
             creator: {
               select: { id: true, name: true, username: true },

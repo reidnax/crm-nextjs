@@ -91,6 +91,9 @@ const TasksContainer = memo(function TasksContainer({
       if (debouncedFilters.search.trim()) {
         url.searchParams.set("search", debouncedFilters.search.trim());
       }
+      if (debouncedFilters.includeDeleted) {
+        url.searchParams.set("includeDeleted", "true");
+      }
 
       // Add sort parameters to API request
       url.searchParams.set("sortField", sort.field);

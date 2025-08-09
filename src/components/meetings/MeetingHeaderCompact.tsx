@@ -15,89 +15,97 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
-import SearchInput from "./SearchInput";
+import SearchInput from "@/components/tasks/SearchInput";
 import {
   Plus,
-  Filter,
   Calendar,
   SortAsc,
   SortDesc,
-  X,
   CheckCircle,
   Clock,
   AlertTriangle,
-  Flag,
-  Target,
-  TrendingUp,
   Settings,
   BarChart3,
   Loader2,
+  MapPin,
+  Video,
+  X,
   Eye,
   EyeOff,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getPriorityColor, getTaskStatusColor } from "@/lib/utils";
-import { TASK_CATEGORIES } from "@/lib/validations/task-validation";
 
-export interface FilterState {
+export interface MeetingFilterState {
   search: string;
   status: string;
+  type: string;
   priority: string;
-  category: string;
-  assignee: string;
+  dateRange: string;
   includeDeleted: boolean;
 }
 
-export interface SortState {
+export interface MeetingSortState {
   field: string;
   direction: "asc" | "desc";
 }
 
-export interface TaskAnalytics {
+export interface MeetingAnalytics {
   total: number;
-  pending: number;
-  inProgress: number;
+  scheduled: number;
   completed: number;
+  inProgress: number;
+  cancelled: number;
   overdue: number;
 }
 
-interface TaskHeaderCompactProps {
-  filters: FilterState;
-  sort: SortState;
-  analytics: TaskAnalytics | undefined;
+interface MeetingHeaderCompactProps {
+  filters: MeetingFilterState;
+  sort: MeetingSortState;
+  analytics: MeetingAnalytics | undefined;
   isAnalyticsLoading: boolean;
   analyticsError: Error | null;
-  onFilterChange: (key: keyof FilterState, value: string | boolean) => void;
+  onFilterChange: (
+    key: keyof MeetingFilterState,
+    value: string | boolean
+  ) => void;
   onSortChange: (field: string) => void;
   onClearFilters: () => void;
-  onAddTask: () => void;
+  onAddMeeting: () => void;
   isAdmin?: boolean;
 }
 
 const QUICK_FILTERS = [
+  {
+    label: "Today",
+    filters: { dateRange: "today" },
+    color: "bg-blue-100 text-blue-700",
+  },
   {
     label: "High Priority",
     filters: { priority: "High" },
     color: "bg-red-100 text-red-700",
   },
   {
-    label: "My Tasks",
-    filters: { assignee: "me" },
-    color: "bg-purple-100 text-purple-700",
-  },
-  {
     label: "In Progress",
     filters: { status: "In Progress" },
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-yellow-100 text-yellow-700",
   },
 ];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Status" },
-  { value: "Pending", label: "Pending" },
+  { value: "Scheduled", label: "Scheduled" },
   { value: "In Progress", label: "In Progress" },
   { value: "Completed", label: "Completed" },
+  { value: "Cancelled", label: "Cancelled" },
+];
+
+const TYPE_OPTIONS = [
+  { value: "all", label: "All Types" },
+  { value: "Meeting", label: "Meeting" },
+  { value: "Call", label: "Call" },
+  { value: "Video Call", label: "Video Call" },
+  { value: "Demo", label: "Demo" },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -107,21 +115,16 @@ const PRIORITY_OPTIONS = [
   { value: "Low", label: "Low" },
 ];
 
-const CATEGORY_OPTIONS = [
-  { value: "all", label: "All Categories" },
-  ...TASK_CATEGORIES.map((category) => ({
-    value: category.value,
-    label: category.label,
-  })),
+const DATE_RANGE_OPTIONS = [
+  { value: "all", label: "All Time" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "this_week", label: "This Week" },
+  { value: "next_week", label: "Next Week" },
+  { value: "this_month", label: "This Month" },
 ];
 
-const ASSIGNEE_OPTIONS = [
-  { value: "all", label: "All Assignees" },
-  { value: "me", label: "My Tasks" },
-  { value: "unassigned", label: "Unassigned" },
-];
-
-const TaskHeaderCompact = memo(function TaskHeaderCompact({
+const MeetingHeaderCompact = memo(function MeetingHeaderCompact({
   filters,
   sort,
   analytics,
@@ -130,40 +133,40 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
   onFilterChange,
   onSortChange,
   onClearFilters,
-  onAddTask,
+  onAddMeeting,
   isAdmin = false,
-}: TaskHeaderCompactProps) {
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+}: MeetingHeaderCompactProps) {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
-    if (key === "search") return value.trim() !== "";
-    if (key === "includeDeleted") return value === true;
-    return value !== "all" && value !== "";
-  });
+  const hasActiveFilters =
+    filters.search !== "" ||
+    filters.status !== "all" ||
+    filters.type !== "all" ||
+    filters.priority !== "all" ||
+    filters.dateRange !== "all" ||
+    filters.includeDeleted === true;
+
+  const handleQuickFilter = (quickFilters: Partial<MeetingFilterState>) => {
+    Object.entries(quickFilters).forEach(([key, value]) => {
+      if (value !== undefined) {
+        onFilterChange(key as keyof MeetingFilterState, value);
+      }
+    });
+  };
 
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters.search.trim()) count++;
     if (filters.status !== "all") count++;
+    if (filters.type !== "all") count++;
     if (filters.priority !== "all") count++;
-    if (filters.category !== "all") count++;
-    if (filters.assignee !== "all") count++;
+    if (filters.dateRange !== "all") count++;
     if (filters.includeDeleted) count++;
     return count;
   };
 
-  const handleQuickFilter = (quickFilters: Partial<FilterState>) => {
-    Object.entries(quickFilters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        onFilterChange(key as keyof FilterState, value);
-      }
-    });
-  };
-
-  const taskStats = analytics;
-
-  // Remove debug logs in production build
+  const meetingStats = analytics;
 
   return (
     <div className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3">
@@ -173,9 +176,9 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
         <div className="flex items-center justify-between gap-2 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
-              Tasks
+              Meetings
             </h1>
-            {!isAnalyticsLoading && !analyticsError && taskStats && (
+            {!isAnalyticsLoading && !analyticsError && meetingStats && (
               <Popover open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -184,40 +187,40 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                     className="h-6 px-2 text-xs"
                   >
                     <BarChart3 className="h-3 w-3 mr-1" />
-                    {taskStats.total}
+                    {meetingStats.total}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-3" align="start">
                   <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Task Analytics</h4>
+                    <h4 className="font-medium text-sm">Meeting Analytics</h4>
                     <div className="grid grid-cols-5 gap-2">
                       <div className="text-center">
                         <div className="text-lg font-bold text-gray-700">
-                          {taskStats.total}
+                          {meetingStats.total}
                         </div>
                         <div className="text-xs text-gray-500">Total</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-yellow-600">
-                          {taskStats.pending}
+                        <div className="text-lg font-bold text-blue-600">
+                          {meetingStats.scheduled}
                         </div>
-                        <div className="text-xs text-gray-500">Pending</div>
+                        <div className="text-xs text-gray-500">Scheduled</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-blue-600">
-                          {taskStats.inProgress}
+                        <div className="text-lg font-bold text-yellow-600">
+                          {meetingStats.inProgress}
                         </div>
                         <div className="text-xs text-gray-500">Progress</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg font-bold text-green-600">
-                          {taskStats.completed}
+                          {meetingStats.completed}
                         </div>
                         <div className="text-xs text-gray-500">Done</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg font-bold text-red-600">
-                          {taskStats.overdue}
+                          {meetingStats.overdue}
                         </div>
                         <div className="text-xs text-gray-500">Overdue</div>
                       </div>
@@ -226,9 +229,10 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                       <div className="flex justify-between text-xs">
                         <span>Completion</span>
                         <span>
-                          {taskStats.total > 0
+                          {meetingStats.total > 0
                             ? Math.round(
-                                (taskStats.completed / taskStats.total) * 100
+                                (meetingStats.completed / meetingStats.total) *
+                                  100
                               )
                             : 0}
                           %
@@ -239,9 +243,10 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                           className="bg-green-500 h-1 rounded-full transition-all"
                           style={{
                             width:
-                              taskStats.total > 0
+                              meetingStats.total > 0
                                 ? `${
-                                    (taskStats.completed / taskStats.total) *
+                                    (meetingStats.completed /
+                                      meetingStats.total) *
                                     100
                                   }%`
                                 : "0%",
@@ -263,36 +268,36 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
 
           {/* Mobile Add Button */}
           <div className="sm:hidden">
-            <Button onClick={onAddTask} size="sm" className="h-8 px-3">
+            <Button onClick={onAddMeeting} size="sm" className="h-8 px-3">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Inline Quick Stats - Desktop */}
-          {!isAnalyticsLoading && !analyticsError && taskStats && (
+          {!isAnalyticsLoading && !analyticsError && meetingStats && (
             <div className="hidden lg:flex items-center gap-2 text-xs">
-              {taskStats.pending > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="bg-yellow-100 text-yellow-700 text-xs h-5"
-                >
-                  {taskStats.pending} pending
-                </Badge>
-              )}
-              {taskStats.inProgress > 0 && (
+              {meetingStats.scheduled > 0 && (
                 <Badge
                   variant="secondary"
                   className="bg-blue-100 text-blue-700 text-xs h-5"
                 >
-                  {taskStats.inProgress} active
+                  {meetingStats.scheduled} scheduled
                 </Badge>
               )}
-              {taskStats.overdue > 0 && (
+              {meetingStats.inProgress > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-100 text-yellow-700 text-xs h-5"
+                >
+                  {meetingStats.inProgress} active
+                </Badge>
+              )}
+              {meetingStats.overdue > 0 && (
                 <Badge
                   variant="secondary"
                   className="bg-red-100 text-red-700 text-xs h-5"
                 >
-                  {taskStats.overdue} overdue
+                  {meetingStats.overdue} overdue
                 </Badge>
               )}
             </div>
@@ -305,7 +310,7 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
             <SearchInput
               value={filters.search}
               onChange={(value) => onFilterChange("search", value)}
-              placeholder="Search tasks..."
+              placeholder="Search meetings..."
             />
           </div>
 
@@ -331,13 +336,13 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
           <div className="flex items-center gap-2 sm:hidden">
             {!isAnalyticsLoading &&
               !analyticsError &&
-              taskStats &&
-              taskStats.overdue > 0 && (
+              meetingStats &&
+              meetingStats.overdue > 0 && (
                 <Badge
                   variant="secondary"
                   className="bg-red-100 text-red-700 text-xs h-5"
                 >
-                  {taskStats.overdue} overdue
+                  {meetingStats.overdue} overdue
                 </Badge>
               )}
             {hasActiveFilters && (
@@ -362,13 +367,13 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
             {/* Sort Controls */}
             <div className="flex gap-1">
               <Button
-                variant={sort.field === "dueDate" ? "default" : "outline"}
+                variant={sort.field === "startTime" ? "default" : "outline"}
                 size="sm"
-                onClick={() => onSortChange("dueDate")}
+                onClick={() => onSortChange("startTime")}
                 className="h-7 px-1 sm:px-2"
               >
                 <Calendar className="h-3 w-3" />
-                {sort.field === "dueDate" &&
+                {sort.field === "startTime" &&
                   (sort.direction === "asc" ? (
                     <SortAsc className="h-3 w-3 ml-0.5 sm:ml-1" />
                   ) : (
@@ -381,7 +386,7 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                 onClick={() => onSortChange("priority")}
                 className="h-7 px-1 sm:px-2"
               >
-                <Flag className="h-3 w-3" />
+                <AlertTriangle className="h-3 w-3" />
                 {sort.field === "priority" &&
                   (sort.direction === "asc" ? (
                     <SortAsc className="h-3 w-3 ml-0.5 sm:ml-1" />
@@ -404,7 +409,22 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
               </PopoverTrigger>
               <PopoverContent className="w-80 sm:w-96 p-4" align="end">
                 <div className="space-y-4">
-                  <h4 className="font-medium text-sm">Advanced Filters</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-sm">Advanced Filters</h4>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          onClearFilters();
+                          setIsFiltersOpen(false);
+                        }}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-600 mb-1 block">
@@ -421,6 +441,26 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                         </SelectTrigger>
                         <SelectContent>
                           {STATUS_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">
+                        Type
+                      </label>
+                      <Select
+                        value={filters.type}
+                        onValueChange={(value) => onFilterChange("type", value)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TYPE_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -452,41 +492,19 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                     </div>
                     <div>
                       <label className="text-xs text-gray-600 mb-1 block">
-                        Category
+                        Date Range
                       </label>
                       <Select
-                        value={filters.category}
+                        value={filters.dateRange}
                         onValueChange={(value) =>
-                          onFilterChange("category", value)
+                          onFilterChange("dateRange", value)
                         }
                       >
                         <SelectTrigger className="h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {CATEGORY_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        Assignee
-                      </label>
-                      <Select
-                        value={filters.assignee}
-                        onValueChange={(value) =>
-                          onFilterChange("assignee", value)
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ASSIGNEE_OPTIONS.map((option) => (
+                          {DATE_RANGE_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -495,35 +513,6 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                       </Select>
                     </div>
                   </div>
-
-                  {/* Admin: Show Deleted Items Toggle */}
-                  {isAdmin && (
-                    <div>
-                      <label className="text-xs text-gray-600 mb-2 block">
-                        Admin Options
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="includeDeleted"
-                          checked={filters.includeDeleted}
-                          onCheckedChange={(checked) =>
-                            onFilterChange("includeDeleted", checked as boolean)
-                          }
-                        />
-                        <label
-                          htmlFor="includeDeleted"
-                          className="text-sm text-gray-700 cursor-pointer"
-                        >
-                          Show deleted items
-                        </label>
-                        {filters.includeDeleted ? (
-                          <Eye className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Mobile Quick Filters */}
                   <div className="sm:hidden">
@@ -544,6 +533,35 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
                       ))}
                     </div>
                   </div>
+
+                  {/* Admin: Show Deleted Items Toggle */}
+                  {isAdmin && (
+                    <div>
+                      <label className="text-xs text-gray-600 mb-2 block">
+                        Admin Options
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="meetingIncludeDeleted"
+                          checked={filters.includeDeleted}
+                          onCheckedChange={(checked) =>
+                            onFilterChange("includeDeleted", checked as boolean)
+                          }
+                        />
+                        <label
+                          htmlFor="meetingIncludeDeleted"
+                          className="text-sm text-gray-700 cursor-pointer"
+                        >
+                          Show deleted items
+                        </label>
+                        {filters.includeDeleted ? (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {hasActiveFilters && (
                     <Button
@@ -572,14 +590,14 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
               </Button>
             )}
 
-            {/* Add Task - Desktop */}
+            {/* Desktop Add Button */}
             <Button
-              onClick={onAddTask}
+              onClick={onAddMeeting}
               size="sm"
-              className="h-7 px-3 hidden sm:flex"
+              className="h-7 px-2 hidden sm:flex"
             >
               <Plus className="h-3 w-3 mr-1" />
-              Add
+              <span className="hidden lg:inline">Add</span>
             </Button>
           </div>
         </div>
@@ -588,4 +606,4 @@ const TaskHeaderCompact = memo(function TaskHeaderCompact({
   );
 });
 
-export default TaskHeaderCompact;
+export default MeetingHeaderCompact;

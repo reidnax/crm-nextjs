@@ -20,7 +20,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { Task } from "./TasksTable";
-import { getPriorityColor, getTaskStatusColor } from "@/lib/utils";
+import { getPriorityColor, getTaskStatusColor, formatDate } from "@/lib/utils";
 
 interface TaskCardProps {
   task: Task;
@@ -36,12 +36,18 @@ const TaskCard = memo(function TaskCard({
   onDelete,
 }: TaskCardProps) {
   const isCompleted = task.status === "Completed";
+  const isDeleted = !!task.deletedAt;
   const dueDate = new Date(task.dueDate);
   const isOverdue = dueDate < new Date() && !isCompleted;
   const isDueToday = dueDate.toDateString() === new Date().toDateString();
 
+  // Determine card styling based on status
+  const cardClasses = isDeleted
+    ? "group transition-all duration-200 border-l-4 border-l-red-500 bg-red-50 opacity-75"
+    : "group hover:shadow-lg hover:shadow-blue-50 transition-all duration-200 border-l-4 border-l-gray-200 hover:border-l-blue-400";
+
   return (
-    <Card className="group hover:shadow-lg hover:shadow-blue-50 transition-all duration-200 border-l-4 border-l-gray-200 hover:border-l-blue-400">
+    <Card className={cardClasses}>
       <CardContent className="p-3 sm:p-4">
         <div className="space-y-3">
           {/* Header Row - Title, Status, Priority */}
@@ -130,6 +136,14 @@ const TaskCard = memo(function TaskCard({
 
             {/* Status and Priority badges */}
             <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
+              {isDeleted && (
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-red-100 text-red-700 border-red-300"
+                >
+                  DELETED
+                </Badge>
+              )}
               <Badge
                 variant="outline"
                 className={`text-xs ${getTaskStatusColor(task.status)}`}
@@ -161,7 +175,7 @@ const TaskCard = memo(function TaskCard({
               <div className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className={isOverdue ? "text-red-600 font-medium" : ""}>
-                  {dueDate.toLocaleDateString()}
+                  {formatDate(dueDate)}
                 </span>
               </div>
 
@@ -213,27 +227,29 @@ const TaskCard = memo(function TaskCard({
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0 self-end sm:self-auto">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(task)}
-                className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
-                title="Edit task"
-              >
-                <Edit className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onDelete(task)}
-                className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
-                title="Delete task"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            {/* Action Buttons - Hidden for deleted items */}
+            {!isDeleted && (
+              <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0 self-end sm:self-auto">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(task)}
+                  className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
+                  title="Edit task"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(task)}
+                  className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                  title="Delete task"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Mobile-only additional info */}

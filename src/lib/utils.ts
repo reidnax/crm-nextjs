@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { format } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -79,3 +80,40 @@ export function getTaskStatusColor(status?: string) {
       return "bg-gray-100 text-gray-700";
   }
 }
+
+export function getMeetingStatusColor(
+  status?: string
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status?.toLowerCase()) {
+    case "scheduled":
+      return "secondary";
+    case "in progress":
+      return "default";
+    case "completed":
+      return "default";
+    case "cancelled":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
+/**
+ * Formats a date to dd/mm/yyyy format
+ * @param date - Date object or date string
+ * @returns Formatted date string in dd/mm/yyyy format
+ */
+export const formatDate = (date: Date | string): string => {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return format(dateObj, "dd/MM/yyyy");
+};
+
+/**
+ * Formats a date to dd/mm/yyyy HH:mm format for datetime display
+ * @param date - Date object or date string
+ * @returns Formatted date string in dd/mm/yyyy HH:mm format
+ */
+export const formatDateTime = (date: Date | string): string => {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return format(dateObj, "dd/MM/yyyy HH:mm");
+};

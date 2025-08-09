@@ -375,10 +375,7 @@ export default function AuditPage() {
                     logs.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell className="text-sm">
-                          {format(
-                            new Date(log.createdAt),
-                            "MMM dd, yyyy HH:mm"
-                          )}
+                          {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm")}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

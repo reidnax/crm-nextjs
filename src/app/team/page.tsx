@@ -51,6 +51,7 @@ import { isAdminRole, isAdminRoleVariation } from "@/lib/permissions";
 import { PermissionGate } from "@/components/auth/PermissionGate";
 
 import { toast } from "sonner";
+import { formatDate } from "@/lib/utils";
 
 interface TeamMember {
   id: number;
@@ -232,7 +233,7 @@ export default function TeamPage() {
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
+    return formatDate(date);
   };
 
   const handleToggleActive = async (memberId: number, active: boolean) => {

@@ -342,8 +342,11 @@ async function buildMeetingsFilter(
   hasReadAssigned: boolean,
   hasReadDepartment: boolean
 ): Promise<Record<string, unknown> | null> {
+  // CRITICAL: Always exclude deleted items from dashboard
+  const baseFilter = { deletedAt: null };
+
   if (hasReadAll) {
-    return {}; // No filter, user can see all
+    return baseFilter; // All non-deleted items
   }
 
   const permissionFilters = [];
@@ -366,7 +369,10 @@ async function buildMeetingsFilter(
   }
 
   if (permissionFilters.length > 0) {
-    return { OR: permissionFilters };
+    return {
+      ...baseFilter,
+      OR: permissionFilters,
+    };
   }
 
   return null; // No permissions
@@ -379,8 +385,11 @@ async function buildTasksFilter(
   hasReadAssigned: boolean,
   hasReadDepartment: boolean
 ): Promise<Record<string, unknown> | null> {
+  // CRITICAL: Always exclude deleted items from dashboard
+  const baseFilter = { deletedAt: null };
+
   if (hasReadAll) {
-    return {}; // No filter, user can see all
+    return baseFilter; // All non-deleted items
   }
 
   const permissionFilters = [];
@@ -404,7 +413,10 @@ async function buildTasksFilter(
   }
 
   if (permissionFilters.length > 0) {
-    return { OR: permissionFilters };
+    return {
+      ...baseFilter,
+      OR: permissionFilters,
+    };
   }
 
   return null; // No permissions

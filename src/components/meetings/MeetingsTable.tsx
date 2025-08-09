@@ -1,25 +1,27 @@
 "use client";
 
 import { useEffect, useRef, memo } from "react";
-import { CheckSquare, Loader2 } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import TaskCard from "./TaskCard";
+import MeetingCard from "./MeetingCard";
 
-export interface Task {
+export interface Meeting {
   id: number;
   subject: string;
   description?: string;
-  dueDate: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
   status?: string;
+  type?: string;
   priority?: string;
-  category?: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  assignedTo?: number;
-  reminderDate?: string;
-  tags?: string[];
+  location?: string;
+  agenda?: string;
+  outcome?: string;
+  attendees?: string[] | null;
   isRecurring?: boolean;
-  completedAt?: string;
+  reminderSent?: boolean;
+  createdAt?: string;
   updatedAt?: string;
   deletedAt?: string;
   deletedBy?: number;
@@ -33,44 +35,39 @@ export interface Task {
     name: string;
     username: string;
   };
-  assignee?: {
-    id: number;
-    name: string;
-    username: string;
-  };
 }
 
-interface TasksTableProps {
-  tasks: Task[];
+interface MeetingsTableProps {
+  meetings: Meeting[];
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onFetchNextPage: () => void;
-  onToggleTaskCompletion: (task: Task) => void;
-  onEditTask: (task: Task) => void;
-  onDeleteTask: (task: Task) => void;
+  onEditMeeting: (meeting: Meeting) => void;
+  onDeleteMeeting: (meeting: Meeting) => void;
+  onCompleteMeeting: (meeting: Meeting) => void;
   isLoading?: boolean;
   className?: string;
 }
 
-const TasksTable = memo(function TasksTable({
-  tasks,
+const MeetingsTable = memo(function MeetingsTable({
+  meetings,
   hasNextPage,
   isFetchingNextPage,
   onFetchNextPage,
-  onToggleTaskCompletion,
-  onEditTask,
-  onDeleteTask,
+  onEditMeeting,
+  onDeleteMeeting,
+  onCompleteMeeting,
   isLoading = false,
   className = "",
-}: TasksTableProps) {
+}: MeetingsTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Virtual scrolling setup
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: hasNextPage ? tasks.length + 1 : tasks.length,
+    count: hasNextPage ? meetings.length + 1 : meetings.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 210, // Increased for better mobile/desktop spacing
+    estimateSize: () => 230, // Increased for better mobile/desktop spacing
     overscan: 5, // Render 5 extra items outside viewport for smooth scrolling
   });
 
@@ -102,7 +99,7 @@ const TasksTable = memo(function TasksTable({
     isFetchingNextPage,
     onFetchNextPage,
     rowVirtualizer,
-    tasks.length,
+    meetings.length,
   ]);
 
   if (isLoading) {
@@ -110,18 +107,18 @@ const TasksTable = memo(function TasksTable({
       <div ref={containerRef} className={`h-full ${className}`}>
         <div className="flex items-center justify-center h-full">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading tasks...</span>
+          <span className="ml-2">Loading meetings...</span>
         </div>
       </div>
     );
   }
 
-  if (tasks.length === 0 && !hasNextPage) {
+  if (meetings.length === 0 && !hasNextPage) {
     return (
       <div ref={containerRef} className={`h-full ${className}`}>
         <div className="flex items-center justify-center h-full text-gray-500">
-          <CheckSquare className="h-8 w-8 mr-2" />
-          <span>No tasks found</span>
+          <Calendar className="h-8 w-8 mr-2" />
+          <span>No meetings found</span>
         </div>
       </div>
     );
@@ -144,8 +141,8 @@ const TasksTable = memo(function TasksTable({
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const isLoaderRow = virtualRow.index > tasks.length - 1;
-            const task = tasks[virtualRow.index];
+            const isLoaderRow = virtualRow.index > meetings.length - 1;
+            const meeting = meetings[virtualRow.index];
 
             return (
               <div
@@ -162,21 +159,21 @@ const TasksTable = memo(function TasksTable({
                   hasNextPage ? (
                     <div className="flex items-center justify-center p-4">
                       <Loader2 className="h-6 w-6 animate-spin" />
-                      <span className="ml-2">Loading more tasks...</span>
+                      <span className="ml-2">Loading more meetings...</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center p-4 text-gray-500">
-                      <CheckSquare className="h-5 w-5 mr-2" />
-                      No more tasks to load
+                      <Calendar className="h-5 w-5 mr-2" />
+                      No more meetings to load
                     </div>
                   )
                 ) : (
                   <div className="p-1 sm:p-2">
-                    <TaskCard
-                      task={task}
-                      onToggleCompletion={onToggleTaskCompletion}
-                      onEdit={onEditTask}
-                      onDelete={onDeleteTask}
+                    <MeetingCard
+                      meeting={meeting}
+                      onEdit={onEditMeeting}
+                      onDelete={onDeleteMeeting}
+                      onComplete={onCompleteMeeting}
                     />
                   </div>
                 )}
@@ -189,4 +186,4 @@ const TasksTable = memo(function TasksTable({
   );
 });
 
-export default TasksTable;
+export default MeetingsTable;
