@@ -6,6 +6,14 @@ import QueryProvider from "@/components/providers/query-provider";
 import MainLayout from "@/components/layout/main-layout";
 import ErrorBoundary from "@/components/ui/error-boundary";
 
+// Initialize event listeners on server side
+import { initializeEventListeners } from "@/lib/events/listeners";
+
+// Initialize event system on app startup
+if (typeof window === "undefined") {
+  initializeEventListeners();
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

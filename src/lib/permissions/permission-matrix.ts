@@ -81,6 +81,12 @@ export const PERMISSIONS = {
   "reports.view.personal": "View personal reports",
   "reports.create": "Create custom reports",
 
+  // Daily Activity Reports
+  "reports.daily.create": "Submit daily activity reports",
+  "reports.daily.read.all": "View all daily activity reports",
+  "reports.daily.read.assigned": "View assigned daily activity reports",
+  "reports.daily.analytics": "Access daily activity report analytics",
+
   // System Settings
   "settings.system": "Manage system settings",
   "settings.integrations": "Manage integrations",
@@ -166,6 +172,11 @@ export const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     "reports.create",
     "data.export.department",
 
+    // Daily Activity Reports (manager scope)
+    "reports.daily.create",
+    "reports.daily.read.all",
+    "reports.daily.analytics",
+
     // Dashboard
     "dashboard.view.all",
     "dashboard.view.department",
@@ -206,6 +217,10 @@ export const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     // Basic reporting
     "reports.view.personal",
     "data.export.assigned",
+
+    // Daily Activity Reports (self only)
+    "reports.daily.create",
+    "reports.daily.read.assigned",
 
     // Personal dashboard
     "dashboard.view.personal",

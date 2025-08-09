@@ -44,13 +44,14 @@ model User {
   createdNotes    Note[]    @relation("UserCreatedNotes")
 
   // RBAC relations
-  manager         User?                @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
-  subordinates    User[]               @relation("UserManager")
+  manager         User?                 @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates    User[]                @relation("UserManager")
   userPermissions UserPermission[]
-  auditLogs       PermissionAuditLog[] @relation("AuditUser")
-  grantedAudits   PermissionAuditLog[] @relation("AuditGrantedBy")
+  auditLogs       PermissionAuditLog[]  @relation("AuditUser")
+  grantedAudits   PermissionAuditLog[]  @relation("AuditGrantedBy")
   ownedResources  ResourceOwnership[]
-  migrationLogs   MigrationLog[]       @relation("UserMigrationLogs")
+  migrationLogs   MigrationLog[]        @relation("UserMigrationLogs")
+  dailyReports    DailyActivityReport[] @relation("UserDailyReports")
 
   @@map("Users")
 }
@@ -336,4 +337,53 @@ model MigrationLog {
   @@index([executedAt])
   @@index([success])
   @@map("MigrationLogs")
+}
+
+// Daily Activity Reports System
+model DailyActivityReport {
+  id                       String   @id @default(cuid())
+  // Report date - the business date this report is for (default today in UI)
+  reportDate               DateTime
+  // Executive submitting the report - references User.id
+  executiveId              Int
+  // Zone/state where executive operates - picklist value stored as single string
+  zone                     String
+  // Sales units sold today - non-negative integer
+  salesUnitsToday          Int
+  // Collections amount in INR today - non-negative decimal with 2 decimal precision
+  collectionsTodayINR      Decimal  @db.Decimal(14, 2)
+  // Number of dealer meetings conducted today
+  dealerMeetingsCount      Int
+  // Number of plant visits conducted today
+  plantVisitsCount         Int
+  // Number of new dealership visits conducted today
+  newDealershipVisitsCount Int
+  // Optional notes/comments for the day
+  notes                    String?
+
+  // System computed fields - set server-side on create
+  // Month key for efficient querying - format "YYYY-MM"
+  monthKey         String
+  // Timestamp when report was submitted to system
+  submittedAt      DateTime @default(now())
+  // User ID who submitted the report (from session)
+  submittedBy      Int
+  // Whether this submission was after 21:00 IST cutoff for the report date
+  isLateSubmission Boolean
+  // Geographic location data captured from client device
+  geoCity          String?
+  geoLat           Decimal? @db.Decimal(10, 7)
+  geoLon           Decimal? @db.Decimal(10, 7)
+
+  // Relations
+  executive User @relation("UserDailyReports", fields: [executiveId], references: [id], onDelete: Cascade)
+
+  // Constraints to ensure one report per executive per date
+  @@unique([executiveId, reportDate])
+  // Indexes for efficient querying
+  @@index([monthKey])
+  @@index([executiveId, monthKey])
+  @@index([zone])
+  @@index([reportDate])
+  @@map("DailyActivityReports")
 }

@@ -21,6 +21,8 @@ import {
   Shield,
   Activity,
   Database,
+  BarChart3,
+  ClipboardList,
 } from "lucide-react";
 import { RoleGate } from "@/components/auth/RoleGate";
 import { usePermissions } from "@/contexts/PermissionContext";
@@ -37,6 +39,19 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
+const reportsNavigation = [
+  {
+    name: "Submit Daily Report",
+    href: "/reports/daily/new",
+    icon: ClipboardList,
+  },
+  {
+    name: "Daily Analytics",
+    href: "/reports/daily/analytics",
+    icon: BarChart3,
+  },
+];
+
 const adminNavigation = [
   { name: "Audit Logs", href: "/admin/audit", icon: Shield },
   { name: "Migrations", href: "/admin/migrations", icon: Database },
@@ -49,11 +64,13 @@ const debugNavigation = [
 interface SidebarProps {
   isCollapsed?: boolean;
   onToggle?: () => void;
+  isMobile?: boolean;
 }
 
 export default function Sidebar({
   isCollapsed = false,
   onToggle,
+  isMobile = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -96,19 +113,21 @@ export default function Sidebar({
           {!isCollapsed && (
             <h1 className="text-xl font-bold text-gray-900">CRM Pro</h1>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggle}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft
-              className={cn(
-                "h-4 w-4 transition-transform",
-                isCollapsed && "rotate-180"
-              )}
-            />
-          </Button>
+          {!isMobile && onToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggle}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  isCollapsed && "rotate-180"
+                )}
+              />
+            </Button>
+          )}
         </div>
 
         {/* User Profile */}
@@ -171,6 +190,70 @@ export default function Sidebar({
                 </Link>
               );
             })}
+
+            {/* Reports Section */}
+            <div className="pt-4 mt-4 border-t border-gray-200">
+              {!isCollapsed && (
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Reports
+                  </p>
+                </div>
+              )}
+              {reportsNavigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+
+                // Show Submit Daily Report to all allowed roles
+                if (item.name === "Submit Daily Report") {
+                  const allowedRoles = [
+                    "Assignee",
+                    "Manager",
+                    "Admin",
+                    "Admin-Dev",
+                  ];
+                  const userRole = currentSession?.user?.role || "";
+                  if (!allowedRoles.includes(userRole)) {
+                    return null;
+                  }
+                }
+
+                // Show Daily Analytics only to Manager, Admin, Admin-Dev
+                if (item.name === "Daily Analytics") {
+                  const analyticsRoles = ["Manager", "Admin", "Admin-Dev"];
+                  const userRole = currentSession?.user?.role || "";
+                  if (!analyticsRoles.includes(userRole)) {
+                    return null;
+                  }
+                }
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-green-50 text-green-700 border-r-2 border-green-700"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "flex-shrink-0 h-5 w-5",
+                        isActive
+                          ? "text-green-700"
+                          : "text-gray-400 group-hover:text-gray-500",
+                        !isCollapsed && "mr-3"
+                      )}
+                    />
+                    {!isCollapsed && (
+                      <span className="truncate">{item.name}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
 
             {/* Admin Section */}
             <RoleGate roles={["Admin", "Admin-Dev"]}>
