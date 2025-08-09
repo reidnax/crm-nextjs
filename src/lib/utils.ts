@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -105,6 +105,7 @@ export function getMeetingStatusColor(
  */
 export const formatDate = (date: Date | string): string => {
   const dateObj = typeof date === "string" ? new Date(date) : date;
+  if (!isValid(dateObj)) return "";
   return format(dateObj, "dd/MM/yyyy");
 };
 
@@ -115,5 +116,6 @@ export const formatDate = (date: Date | string): string => {
  */
 export const formatDateTime = (date: Date | string): string => {
   const dateObj = typeof date === "string" ? new Date(date) : date;
+  if (!isValid(dateObj)) return "";
   return format(dateObj, "dd/MM/yyyy HH:mm");
 };
