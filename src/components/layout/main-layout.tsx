@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, memo } from "react";
 import { useSessionWatcher } from "@/hooks/useSessionWatcher";
 import Sidebar from "@/components/navigation/sidebar";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, Bell, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -71,14 +71,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <Sidebar
               isCollapsed={sidebarCollapsed}
               onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+              isMobile={false}
             />
           )}
 
           {/* Mobile Sidebar */}
           {isMobile && (
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetContent side="left" className="p-0 w-64">
-                <Sidebar />
+              <SheetContent side="left" className="p-0 w-64 overflow-y-auto">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                <Sidebar isMobile={true} />
               </SheetContent>
             </Sheet>
           )}
