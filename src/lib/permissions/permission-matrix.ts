@@ -192,6 +192,7 @@ export const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     "users.update.own",
 
     // Lead management (assigned only)
+    "leads.create",
     "leads.read.assigned",
     "leads.update.assigned",
     "leads.export.assigned",

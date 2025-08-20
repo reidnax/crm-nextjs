@@ -72,12 +72,6 @@ async function canAccessTask(
     return { canAccess: false };
   }
 
-  // Check if user can access the lead this task belongs to
-  const canAccessTaskLead = await canAccessLead(userId, task.lead.id, action);
-  if (!canAccessTaskLead) {
-    return { canAccess: false };
-  }
-
   // Check task-specific permissions
   const hasAllTaskAccess = await PermissionManager.hasPermission(
     userId,

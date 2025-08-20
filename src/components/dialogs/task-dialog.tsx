@@ -8,7 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import TaskForm, { TaskFormData } from "@/components/forms/task-form";
+import TaskForm from "@/components/forms/task-form";
+import { type TaskFormData } from "@/lib/validations/task-validation";
 import { Button } from "@/components/ui/button";
 
 interface TaskDialogProps {
@@ -24,7 +25,7 @@ interface TaskDialogProps {
   initialData?: Partial<TaskFormData>;
   showStatusField?: boolean;
   showLeadSelector?: boolean;
-  onSubmitOverride?: (formData: TaskFormData, leadId?: number) => Promise<any>;
+  onSubmitOverride?: (formData: TaskFormData, leadId?: number) => Promise<void>;
 }
 
 export default function TaskDialog({
@@ -88,11 +89,11 @@ export default function TaskDialog({
             error.message || `Failed to ${isEditing ? "update" : "create"} task`
           );
         }
-      }
 
-      // Success - close dialog and refresh
-      onClose();
-      onSuccess?.();
+        // Success - close dialog and refresh
+        onClose();
+        onSuccess?.();
+      }
     } catch (error) {
       console.error("Error with task operation:", error);
       // Error handling is now done in the production hook

@@ -248,7 +248,9 @@ function LeadDetailPageContent() {
   const fetchLeadDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/leads/${leadId}`);
+      const response = await fetch(`/api/leads/${leadId}?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const result = await response.json();
 
       if (result.success) {
