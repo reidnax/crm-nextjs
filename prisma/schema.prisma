@@ -52,6 +52,8 @@ model User {
   ownedResources  ResourceOwnership[]
   migrationLogs   MigrationLog[]        @relation("UserMigrationLogs")
   dailyReports    DailyActivityReport[] @relation("UserDailyReports")
+  kpiGoals        KpiGoal[]             @relation("UserKpiGoals")
+  kpiActionItems  KpiActionItem[]       @relation("UserKpiActionItems")
 
   @@map("Users")
 }
@@ -337,6 +339,77 @@ model MigrationLog {
   @@index([executedAt])
   @@index([success])
   @@map("MigrationLogs")
+}
+
+// KPI Module
+model KpiDepartment {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  goals KpiGoal[]
+
+  @@map("KpiDepartments")
+}
+
+// Hierarchical KPI goal node: Yearly → Quarterly → Monthly → Daily
+model KpiGoal {
+  id             Int      @id @default(autoincrement())
+  departmentId   Int
+  parentId       Int?     // null = yearly top-level
+  level          String   // "yearly" | "quarterly" | "monthly" | "daily"
+  name           String
+  unit           String?  // "%", "Cr", "units", etc.
+  periodLabel    String   // "2026" | "Q1-2026" | "2026-06" | "2026-06-20"
+  target         String?
+  actual         String?
+  actualNumeric  Decimal? @db.Decimal(18, 4)
+  status         String?  // "green" | "yellow" | "red"
+  higherIsBetter Boolean  @default(true)
+  notes          String?
+  sortOrder      Int      @default(0)
+  enteredBy      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department    KpiDepartment   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  parent        KpiGoal?        @relation("GoalChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children      KpiGoal[]       @relation("GoalChildren")
+  actionItems   KpiActionItem[]
+  enteredByUser User            @relation("UserKpiGoals", fields: [enteredBy], references: [id], onDelete: Cascade)
+
+  @@index([departmentId, level, periodLabel])
+  @@index([parentId])
+  @@map("KpiGoals")
+}
+
+// Action items attached to any KpiGoal node at any level
+model KpiActionItem {
+  id          Int       @id @default(autoincrement())
+  goalId      Int
+  title       String
+  description String?
+  target      String?
+  actual      String?
+  owner       String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  status      String    @default("open") // "open"|"in-progress"|"done"|"blocked"
+  notes       String?
+  createdBy   Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  goal          KpiGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("UserKpiActionItems", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("KpiActionItems")
 }
 
 // Daily Activity Reports System
