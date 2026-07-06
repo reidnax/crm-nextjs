@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { Plus, ChevronDown, ChevronRight, Check, X, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -32,44 +32,34 @@ const STATUS_OPTIONS = [
 
 const STATUS_MAP = Object.fromEntries(STATUS_OPTIONS.map((s) => [s.value, s]));
 
-// ─── blank row state ──────────────────────────────────────────────────────────
+// ─── row state ───────────────────────────────────────────────────────────────
 
 interface RowValues {
   title: string;
-  target: string;
-  actual: string;
   owner: string;
   dueDate: string;
   status: string;
-  description: string;
   notes: string;
+  // kept for API round-trip but not shown in form
+  target: string;
+  actual: string;
+  description: string;
 }
 
 function blankRow(): RowValues {
-  return {
-    title: "",
-    target: "",
-    actual: "",
-    owner: "",
-    dueDate: "",
-    status: "open",
-    description: "",
-    notes: "",
-  };
+  return { title: "", owner: "", dueDate: "", status: "open", notes: "", target: "", actual: "", description: "" };
 }
 
 function itemToRow(item: KpiActionItemData): RowValues {
   return {
     title: item.title,
+    owner: item.owner ?? "",
+    dueDate: item.dueDate ? new Date(item.dueDate).toISOString().split("T")[0] : "",
+    status: item.status ?? "open",
+    notes: item.notes ?? "",
     target: item.target ?? "",
     actual: item.actual ?? "",
-    owner: item.owner ?? "",
-    dueDate: item.dueDate
-      ? new Date(item.dueDate).toISOString().split("T")[0]
-      : "",
-    status: item.status ?? "open",
     description: item.description ?? "",
-    notes: item.notes ?? "",
   };
 }
 
@@ -84,58 +74,45 @@ interface InlineRowEditorProps {
   isNew?: boolean;
 }
 
-function InlineRowEditor({
-  values,
-  onChange,
-  onSave,
-  onCancel,
-  isSaving,
-  isNew,
-}: InlineRowEditorProps) {
+function InlineRowEditor({ values, onChange, onSave, onCancel, isSaving, isNew }: InlineRowEditorProps) {
   const set = (key: keyof RowValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onChange({ ...values, [key]: e.target.value });
 
   return (
-    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2.5">
-      {isNew && (
-        <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">
-          + New Action Item
-        </p>
-      )}
+    <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-3">
+      {/* Header */}
+      <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+        {isNew ? "+ New Action Item" : "✎ Edit Action Item"}
+      </p>
 
-      {/* Row 1: Title (full width) */}
+      {/* Title — full width */}
       <div>
-        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">
-          Title *
+        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
+          Title <span className="text-destructive">*</span>
         </label>
         <Input
           value={values.title}
           onChange={set("title")}
-          placeholder="Action item title"
+          placeholder="What needs to be done?"
           className="h-8 text-sm"
           autoFocus={isNew}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSave(); } }}
         />
       </div>
 
-      {/* Row 2: Target, Actual, Owner, Due Date */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {(["target", "actual", "owner"] as const).map((field) => (
-          <div key={field}>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1 capitalize">
-              {field}
-            </label>
-            <Input
-              value={values[field]}
-              onChange={set(field)}
-              placeholder={field === "owner" ? "Name or team" : `e.g. ${field === "target" ? "100%" : "85%"}`}
-              className="h-8 text-sm"
-            />
-          </div>
-        ))}
+      {/* Owner + Due Date */}
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">
-            Due Date
-          </label>
+          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Owner</label>
+          <Input
+            value={values.owner}
+            onChange={set("owner")}
+            placeholder="Person or team"
+            className="h-8 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Due Date</label>
           <Input
             type="date"
             value={values.dueDate}
@@ -145,12 +122,10 @@ function InlineRowEditor({
         </div>
       </div>
 
-      {/* Row 3: Status */}
+      {/* Status — pill buttons */}
       <div>
-        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">
-          Status
-        </label>
-        <div className="flex flex-wrap gap-1">
+        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Status</label>
+        <div className="flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -160,7 +135,7 @@ function InlineRowEditor({
                 "px-3 h-7 text-xs rounded-full border font-medium transition-colors",
                 values.status === opt.value
                   ? opt.className + " ring-1 ring-offset-1 ring-current"
-                  : "bg-background text-muted-foreground border-input hover:bg-muted"
+                  : "bg-background text-muted-foreground border-input hover:bg-muted",
               )}
             >
               {opt.label}
@@ -169,42 +144,27 @@ function InlineRowEditor({
         </div>
       </div>
 
-      {/* Row 4: Description */}
+      {/* Notes */}
       <div>
-        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">
-          Description
-        </label>
-        <Input
-          value={values.description}
-          onChange={set("description")}
-          placeholder="Optional description"
-          className="h-8 text-sm"
-        />
-      </div>
-
-      {/* Row 5: Notes */}
-      <div>
-        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">
-          Notes
+        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
+          Notes <span className="normal-case font-normal">(optional)</span>
         </label>
         <Textarea
           value={values.notes}
-          onChange={(e) => onChange({ ...values, notes: e.target.value })}
-          placeholder="Optional notes"
+          onChange={e => onChange({ ...values, notes: e.target.value })}
+          placeholder="Additional context or remarks…"
           rows={2}
           className="text-sm resize-none"
         />
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <Button size="sm" variant="outline" onClick={onCancel} disabled={isSaving} className="h-7 gap-1">
-          <X className="h-3 w-3" />
-          Cancel
+      <div className="flex items-center justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={onCancel} disabled={isSaving} className="h-7 gap-1.5">
+          <X className="h-3 w-3" /> Cancel
         </Button>
-        <Button size="sm" onClick={onSave} disabled={isSaving} className="h-7 gap-1">
-          <Check className="h-3 w-3" />
-          {isSaving ? "Saving…" : isNew ? "Add Item" : "Save"}
+        <Button size="sm" onClick={onSave} disabled={isSaving} className="h-7 gap-1.5">
+          <Check className="h-3 w-3" /> {isSaving ? "Saving…" : isNew ? "Add Item" : "Save"}
         </Button>
       </div>
     </div>
@@ -218,6 +178,9 @@ interface KpiActionItemListProps {
   initialItems?: KpiActionItemData[];
   canEdit: boolean;
   defaultCollapsed?: boolean;
+  autoLoad?: boolean;
+  /** When true, hides the internal toggle header (use when the parent already provides one) */
+  hideHeader?: boolean;
 }
 
 export function KpiActionItemList({
@@ -225,8 +188,22 @@ export function KpiActionItemList({
   initialItems = [],
   canEdit,
   defaultCollapsed = false,
+  autoLoad = false,
+  hideHeader = false,
 }: KpiActionItemListProps) {
   const [items, setItems] = useState<KpiActionItemData[]>(initialItems);
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoLoad || fetchedRef.current) return;
+    fetchedRef.current = true;
+    fetch(`/api/kpi/goals/${goalId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.data?.actionItems) setItems(j.data.actionItems);
+      })
+      .catch(() => {});
+  }, [goalId, autoLoad]);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<RowValues>(blankRow());
@@ -248,12 +225,9 @@ export function KpiActionItemList({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: editValues.title.trim(),
-          target: editValues.target || null,
-          actual: editValues.actual || null,
           owner: editValues.owner || null,
           dueDate: editValues.dueDate || null,
           status: editValues.status,
-          description: editValues.description || null,
           notes: editValues.notes || null,
         }),
       });
@@ -276,12 +250,9 @@ export function KpiActionItemList({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newValues.title.trim(),
-          target: newValues.target || null,
-          actual: newValues.actual || null,
           owner: newValues.owner || null,
           dueDate: newValues.dueDate || null,
           status: newValues.status,
-          description: newValues.description || null,
           notes: newValues.notes || null,
         }),
       });
@@ -322,36 +293,51 @@ export function KpiActionItemList({
   };
 
   // ── render ────────────────────────────────────────────────────────────────
+  const isVisible = hideHeader || !collapsed;
+
   return (
-    <div className="mt-1 ml-5">
-      {/* Toggle header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-          <span>Action Items ({items.length})</span>
-        </button>
-        {canEdit && (
+    <div className={hideHeader ? "" : "mt-1 ml-5"}>
+      {/* Toggle header — hidden when parent provides its own */}
+      {!hideHeader && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={openAdd}
-            className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
           >
-            <Plus className="h-3 w-3" />
-            Add
+            {collapsed ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+            <span>Action Items ({items.length})</span>
           </button>
-        )}
-      </div>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={openAdd}
+              className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              Add
+            </button>
+          )}
+        </div>
+      )}
 
-      {!collapsed && (
-        <div className="mt-1.5 space-y-1.5 border-l-2 border-dashed border-border/40 pl-3">
+      {isVisible && (
+        <div className={cn("space-y-1.5 border-l-2 border-dashed border-border/40 pl-3", !hideHeader && "mt-1.5")}>
+          {/* Add button row when header is hidden */}
+          {hideHeader && canEdit && (
+            <button
+              type="button"
+              onClick={openAdd}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors pb-1"
+            >
+              <Plus className="h-3 w-3" />
+              Add action item
+            </button>
+          )}
           {/* Existing items */}
           {items.map((item) => {
             const statusCfg = STATUS_MAP[item.status] ?? STATUS_MAP.open;
@@ -370,31 +356,35 @@ export function KpiActionItemList({
                 ) : (
                   <div className="group flex items-start gap-2 rounded-md hover:bg-muted/40 px-2 py-1.5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-foreground">{item.title}</span>
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <span className="text-xs font-medium text-foreground leading-snug break-words min-w-0 flex-1">
+                          {item.title}
+                        </span>
                         <Badge
                           variant="outline"
-                          className={cn("text-[10px] px-1.5 py-0 font-medium", statusCfg.className)}
+                          className={cn("text-[10px] px-1.5 py-0 font-medium shrink-0", statusCfg.className)}
                         >
                           {statusCfg.label}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-                        {item.owner && <span>Owner: {item.owner}</span>}
-                        {item.dueDate && (
-                          <span>Due: {format(new Date(item.dueDate), "dd MMM yyyy")}</span>
+                      <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                        {item.owner && (
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium text-foreground/60">→</span> {item.owner}
+                          </span>
                         )}
-                        {item.target && <span>Target: {item.target}</span>}
-                        {item.actual && <span>Actual: {item.actual}</span>}
+                        {item.dueDate && (
+                          <span>Due {format(new Date(item.dueDate), "dd MMM yyyy")}</span>
+                        )}
                       </div>
-                      {item.description && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
-                          {item.description}
+                      {(item.notes || item.description) && (
+                        <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed break-words">
+                          {item.notes || item.description}
                         </p>
                       )}
                     </div>
                     {canEdit && (
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           size="icon"
                           variant="ghost"

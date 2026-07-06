@@ -122,7 +122,7 @@ export async function PATCH(
     const body = await request.json();
     const allowedFields = [
       "name", "unit", "target", "actual", "actualNumeric",
-      "status", "higherIsBetter", "notes", "sortOrder", "periodLabel",
+      "status", "higherIsBetter", "notes", "sortOrder", "periodLabel", "parentId",
     ];
     const data: Record<string, unknown> = {};
     for (const field of allowedFields) {

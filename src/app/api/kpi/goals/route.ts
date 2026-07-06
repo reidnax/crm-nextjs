@@ -37,15 +37,14 @@ export async function GET(request: Request) {
     if (level) where.level = level;
 
     // Filter by parentId
-    if (parentIdParam === "null" || parentIdParam === null) {
-      // Top-level: yearly goals for the given year
+    if (parentIdParam === "null") {
+      // Caller explicitly requested top-level goals
       where.parentId = null;
-      where.periodLabel = year;
     } else if (parentIdParam) {
       where.parentId = parseInt(parentIdParam, 10);
     }
 
-    // If no parentId param given and no level, default to yearly for the year
+    // Default: no parentId and no level → return yearly top-level goals for the year
     if (!parentIdParam && !level) {
       where.parentId = null;
       where.periodLabel = year;
